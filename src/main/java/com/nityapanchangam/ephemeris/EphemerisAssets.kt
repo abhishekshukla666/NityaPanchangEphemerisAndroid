@@ -19,8 +19,12 @@ internal object EphemerisAssets {
 
         for (name in FILE_NAMES) {
             val targetFile = File(targetDir, name)
-            val assetSize = context.assets.openFd("$ASSET_DIR/$name").use { it.length }
-            if (targetFile.exists() && targetFile.length() == assetSize) continue
+            // AAPT deflates .se1 as a regular asset (no recognized "already compressed"
+            // extension), so AssetManager.openFd() can't read it — only the decompressing
+            // open() stream works, which means there's no cheap way to compare sizes without
+            // fully reading the asset. A plain existence check is enough since this data never
+            // changes across app versions.
+            if (targetFile.exists()) continue
 
             context.assets.open("$ASSET_DIR/$name").use { input ->
                 targetFile.outputStream().use { output -> input.copyTo(output) }
