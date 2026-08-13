@@ -26,7 +26,7 @@ Then add the dependency:
 
 ```kotlin
 dependencies {
-    implementation("com.github.abhishekshukla666:NityaPanchangEphemerisAndroid:v1.0.0")
+    implementation("com.github.abhishekshukla666:NityaPanchangEphemerisAndroid:v1.0.1")
 }
 ```
 
