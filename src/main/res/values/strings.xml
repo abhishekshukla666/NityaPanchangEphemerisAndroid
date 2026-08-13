@@ -1,0 +1,29 @@
+<resources>
+    <string name="adhik_prefix">Adhik %s</string>
+    <string name="ekadashi_suffix">%s Ekadashi</string>
+
+    <string name="direction_north">North</string>
+    <string name="direction_south">South</string>
+    <string name="direction_east">East</string>
+    <string name="direction_west">West</string>
+
+    <string name="ayana_uttarayana">Uttarayana</string>
+    <string name="ayana_dakshinayana">Dakshinayana</string>
+
+    <string name="muhurat_brahma">Brahma Muhurat</string>
+    <string name="muhurat_amrit">Amrit Kaal</string>
+    <string name="muhurat_abhijit">Abhijit Muhurat</string>
+    <string name="muhurat_vijaya">Vijaya Muhurat</string>
+    <string name="muhurat_godhuli">Godhuli Muhurat</string>
+    <string name="muhurat_rahu">Rahu Kaal</string>
+    <string name="muhurat_yamaganda">Yamaganda</string>
+    <string name="muhurat_gulik">Gulik Kaal</string>
+
+    <string name="chaugh_udveg">Udveg</string>
+    <string name="chaugh_char">Char</string>
+    <string name="chaugh_labh">Labh</string>
+    <string name="chaugh_amrit">Amrit</string>
+    <string name="chaugh_kaal">Kaal</string>
+    <string name="chaugh_shubh">Shubh</string>
+    <string name="chaugh_rog">Rog</string>
+</resources>

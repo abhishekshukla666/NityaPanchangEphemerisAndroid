@@ -1,0 +1,29 @@
+<resources>
+    <string name="adhik_prefix">अधिक %s</string>
+    <string name="ekadashi_suffix">%s एकादशी</string>
+
+    <string name="direction_north">उत्तर</string>
+    <string name="direction_south">दक्षिण</string>
+    <string name="direction_east">पूर्व</string>
+    <string name="direction_west">पश्चिम</string>
+
+    <string name="ayana_uttarayana">उत्तरायण</string>
+    <string name="ayana_dakshinayana">दक्षिणायण</string>
+
+    <string name="muhurat_brahma">ब्रह्म मुहूर्त</string>
+    <string name="muhurat_amrit">अमृत काल</string>
+    <string name="muhurat_abhijit">अभिजीत मुहूर्त</string>
+    <string name="muhurat_vijaya">विजय मुहूर्त</string>
+    <string name="muhurat_godhuli">गोधूलि मुहूर्त</string>
+    <string name="muhurat_rahu">राहु काल</string>
+    <string name="muhurat_yamaganda">यमघण्ट</string>
+    <string name="muhurat_gulik">गुलिक काल</string>
+
+    <string name="chaugh_udveg">उद्वेग</string>
+    <string name="chaugh_char">चर</string>
+    <string name="chaugh_labh">लाभ</string>
+    <string name="chaugh_amrit">अमृत</string>
+    <string name="chaugh_kaal">काल</string>
+    <string name="chaugh_shubh">शुभ</string>
+    <string name="chaugh_rog">रोग</string>
+</resources>
