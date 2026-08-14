@@ -223,6 +223,36 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
         festivals.sortedBy { it.date }
     }
 
+    suspend fun fetchBirthChart(date: Date, latitude: Double, longitude: Double): BirthChart = withContext(Dispatchers.Default) {
+        val jd = dateToJD(date)
+
+        val nakshatraNum = wrapper.calculateNakshatraForJulianDay(jd)
+        val rashiNum = wrapper.calculateMoonRashiForJulianDay(jd)
+        val lagnaLongitude = wrapper.calculateAscendantAtJD(jd, latitude, longitude)
+        val lagnaRashi = (lagnaLongitude / 30.0).toInt() + 1
+
+        val rawPlanets = wrapper.calculatePlanetPositionsForJulianDay(jd)
+        val planetPositions = PanchaangHelper.buildPlanetPositions(context, rawPlanets)
+        val moonLongitude = planetPositions.find { it.id == 1 }?.longitude ?: 0.0
+        val marsRashi = planetPositions.find { it.id == 2 }?.rashiNumber ?: 1
+
+        // Pada: each nakshatra spans 13°20' (13.3333°), split into 4 padas of 3°20' each.
+        val nakshatraSpan = 360.0 / 27.0
+        val offsetInNakshatra = moonLongitude % nakshatraSpan
+        val pada = (offsetInNakshatra / (nakshatraSpan / 4.0)).toInt() + 1
+
+        BirthChart(
+            nakshatra = nakshatraNum,
+            pada = pada.coerceIn(1, 4),
+            rashi = rashiNum,
+            moonLongitude = moonLongitude,
+            marsRashi = marsRashi,
+            lagnaRashi = lagnaRashi.coerceIn(1, 12),
+            lagnaLongitude = lagnaLongitude,
+            planetPositions = planetPositions
+        )
+    }
+
     private fun getStartOfDay(date: Date): Date {
         val calendar = Calendar.getInstance()
         calendar.time = date

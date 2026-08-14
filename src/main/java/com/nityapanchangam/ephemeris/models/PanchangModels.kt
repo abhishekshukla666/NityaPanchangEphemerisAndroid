@@ -49,6 +49,18 @@ data class PlanetPosition(
     val degrees: Double
 )
 
+/** Computed chart used for marriage matching (Guna Milan) and Kundli charts. */
+data class BirthChart(
+    val nakshatra: Int,        // 1-27
+    val pada: Int,              // 1-4
+    val rashi: Int,              // 1-12 (Moon sign)
+    val moonLongitude: Double,  // 0-360 sidereal
+    val marsRashi: Int,         // 1-12
+    val lagnaRashi: Int,        // 1-12 (Ascendant sign)
+    val lagnaLongitude: Double,           // 0-360 sidereal - precise Ascendant, used for Navamsa
+    val planetPositions: List<PlanetPosition>  // all 9 grahas, used to draw Lagna/Navamsa kundli charts
+)
+
 data class HoraInfo(
     val id: Int,
     val planet: String,
