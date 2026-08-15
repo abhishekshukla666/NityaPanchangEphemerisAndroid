@@ -3,14 +3,47 @@ package com.nityapanchangam.ephemeris
 import android.content.Context
 import com.nityapanchangam.ephemeris.models.*
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.util.*
 import kotlin.math.abs
 import kotlin.math.max
 
+/**
+ * Panchang computations backed by the Swiss Ephemeris C library.
+ *
+ * Thread-safety: Swiss Ephemeris keeps ALL of its state — open ephemeris file handles,
+ * segment caches, the sidereal/ayanamsha mode — in one process-global struct (`swed`) that
+ * is not reentrant. Because the heavy work here runs on [Dispatchers.Default], which is a
+ * *multi-threaded* pool, two concurrent calls (say several calendar months loading at once
+ * while the user flings the month pager) would otherwise race on that shared state: one call
+ * can free a segment buffer another is mid-read of, yielding wrong values, empty results, or
+ * a native crash inside `get_new_segment`.
+ *
+ * Every entry point therefore funnels through [ephemerisMutex], which is deliberately
+ * `companion`-scoped rather than per-instance: giving each repository its own lock would not
+ * help, since the state being guarded is global to the process, and apps routinely build a
+ * repository per screen/worker. This mirrors the iOS package, which serializes on a single
+ * shared queue for exactly the same reason.
+ *
+ * None of the public methods call one another, so the non-reentrant mutex cannot self-deadlock.
+ */
 class PanchangRepository(private val context: Context, private val wrapper: SwissEphWrapper) {
 
-    suspend fun fetchPanchang(date: Date, latitude: Double, longitude: Double): PanchangDay = withContext(Dispatchers.Default) {
+    private companion object {
+        val ephemerisMutex = Mutex()
+    }
+
+    /**
+     * Runs [block] on the computation dispatcher with exclusive access to the ephemeris.
+     * The lock is taken before dispatching so callers waiting their turn simply suspend
+     * rather than occupying a pool thread.
+     */
+    private suspend fun <T> ephemerisCall(block: suspend () -> T): T =
+        ephemerisMutex.withLock { withContext(Dispatchers.Default) { block() } }
+
+    suspend fun fetchPanchang(date: Date, latitude: Double, longitude: Double): PanchangDay = ephemerisCall {
         val dayStart = getStartOfDay(date)
         val jdDayStart = dateToJD(dayStart)
 
@@ -141,7 +174,7 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
         )
     }
 
-    suspend fun fetchMonthTithis(year: Int, month: Int, latitude: Double, longitude: Double): Map<Int, Int> = withContext(Dispatchers.Default) {
+    suspend fun fetchMonthTithis(year: Int, month: Int, latitude: Double, longitude: Double): Map<Int, Int> = ephemerisCall {
         val calendar = Calendar.getInstance()
         calendar.set(year, month - 1, 1, 0, 0, 0)
         calendar.set(Calendar.MILLISECOND, 0)
@@ -159,7 +192,7 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
         results
     }
 
-    suspend fun fetchFestivals(startDate: Date, endDate: Date, latitude: Double, longitude: Double): List<HinduFestival> = withContext(Dispatchers.Default) {
+    suspend fun fetchFestivals(startDate: Date, endDate: Date, latitude: Double, longitude: Double): List<HinduFestival> = ephemerisCall {
         val calendar = Calendar.getInstance()
         val festivals = mutableListOf<HinduFestival>()
         val seen = mutableSetOf<String>()
@@ -223,7 +256,7 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
         festivals.sortedBy { it.date }
     }
 
-    suspend fun fetchBirthChart(date: Date, latitude: Double, longitude: Double): BirthChart = withContext(Dispatchers.Default) {
+    suspend fun fetchBirthChart(date: Date, latitude: Double, longitude: Double): BirthChart = ephemerisCall {
         val jd = dateToJD(date)
 
         val nakshatraNum = wrapper.calculateNakshatraForJulianDay(jd)
