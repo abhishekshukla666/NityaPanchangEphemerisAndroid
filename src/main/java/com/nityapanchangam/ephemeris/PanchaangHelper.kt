@@ -63,18 +63,39 @@ object PanchaangHelper {
         return symbols.getOrElse(number - 1) { symbols.last() }
     }
 
+    /** Sun, Moon, Mars, Mercury, Jupiter, Venus, Saturn, Rahu, Ketu — index order shared by
+     *  the `planet_N` string resources, [PLANET_SYMBOLS], and the raw ephemeris output. */
+    private val PLANET_SYMBOLS = listOf("☉", "☾", "♂", "☿", "♃", "♀", "♄", "☊", "☋")
+
+    private val PLANET_FALLBACK_NAMES =
+        listOf("Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "Rahu", "Ketu")
+
+    /**
+     * Localized name for a planet index, resolved from the consuming app's `planet_N` string
+     * resources. Looked up by name rather than by `R.string` constant because this library
+     * deliberately doesn't own these strings — the app does, so a host that ships more (or
+     * fewer) languages than we do gets its own translations without any change here. Falls
+     * back to English if the resource is absent.
+     */
+    fun getPlanetName(context: Context, index: Int): String {
+        val resId = context.resources.getIdentifier("planet_$index", "string", context.packageName)
+        if (resId != 0) return context.getString(resId)
+        return PLANET_FALLBACK_NAMES.getOrElse(index) { "Planet $index" }
+    }
+
+    fun getPlanetSymbol(index: Int): String = PLANET_SYMBOLS.getOrElse(index) { "" }
+
     fun buildPlanetPositions(context: Context, raw: DoubleArray): List<PlanetPosition> {
         val result = mutableListOf<PlanetPosition>()
-        val symbols = listOf("☉", "☾", "♂", "☿", "♃", "♀", "♄", "☊", "☋")
         for (i in 0 until raw.size step 4) {
             val idx = raw[i].toInt()
             val lon = raw[i + 1]
             val rashi = raw[i + 2].toInt()
             val deg = raw[i + 3]
-            if (idx < symbols.size) {
-                val resId = context.resources.getIdentifier("planet_$idx", "string", context.packageName)
-                val name = if (resId != 0) context.getString(resId) else "Planet $idx"
-                result.add(PlanetPosition(idx, name, symbols[idx], lon, rashi, deg))
+            if (idx < PLANET_SYMBOLS.size) {
+                result.add(
+                    PlanetPosition(idx, getPlanetName(context, idx), PLANET_SYMBOLS[idx], lon, rashi, deg)
+                )
             }
         }
         return result.sortedBy { it.id }

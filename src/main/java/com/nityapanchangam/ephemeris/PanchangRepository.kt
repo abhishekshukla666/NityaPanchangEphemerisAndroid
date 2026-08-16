@@ -297,27 +297,36 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
     }
 
     private fun computeHoras(sunriseJD: Double, sunsetJD: Double, nextSunriseJD: Double, weekday: Int): List<HoraInfo> {
+        // Chaldean order, held as planet *indices* rather than English literals so the name
+        // can be resolved through the same localized `planet_N` lookup the Graha Sthiti grid
+        // already uses. Hardcoding the names here was why the Hora widget, live tile, Wear
+        // card and notifications all stayed English while the rest of the app switched to
+        // Hindi. The moon's symbol stays ☽ (the crescent this screen has always drawn),
+        // deliberately not PanchaangHelper's ☾, so the Hora rows don't change appearance.
         val chaldean = listOf(
-            Triple("Saturn", "♄", MuhuratType.INAUSPICIOUS),
-            Triple("Jupiter", "♃", MuhuratType.AUSPICIOUS),
-            Triple("Mars", "♂", MuhuratType.INAUSPICIOUS),
-            Triple("Sun", "☉", MuhuratType.NEUTRAL),
-            Triple("Venus", "♀", MuhuratType.AUSPICIOUS),
-            Triple("Mercury", "☿", MuhuratType.AUSPICIOUS),
-            Triple("Moon", "☽", MuhuratType.AUSPICIOUS)
+            Triple(6, "♄", MuhuratType.INAUSPICIOUS), // Saturn
+            Triple(4, "♃", MuhuratType.AUSPICIOUS),   // Jupiter
+            Triple(2, "♂", MuhuratType.INAUSPICIOUS), // Mars
+            Triple(0, "☉", MuhuratType.NEUTRAL),      // Sun
+            Triple(5, "♀", MuhuratType.AUSPICIOUS),   // Venus
+            Triple(3, "☿", MuhuratType.AUSPICIOUS),   // Mercury
+            Triple(1, "☽", MuhuratType.AUSPICIOUS)    // Moon
         )
+        val names = chaldean.map { PanchaangHelper.getPlanetName(context, it.first) }
         val startIndices = listOf(3, 6, 2, 5, 1, 4, 0) // Sunday to Saturday
         val startIdx = startIndices[weekday - 1]
         val dayLen = (sunsetJD - sunriseJD) / 12.0
         val nightLen = max(nextSunriseJD - sunsetJD, 1.0 / 1440.0) / 12.0
         val result = mutableListOf<HoraInfo>()
         for (i in 0 until 12) {
-            val p = chaldean[(startIdx + i) % 7]
-            result.add(HoraInfo(i, p.first, p.second, jdToDate(sunriseJD + i * dayLen), jdToDate(sunriseJD + (i + 1) * dayLen), true, p.third))
+            val slot = (startIdx + i) % 7
+            val p = chaldean[slot]
+            result.add(HoraInfo(i, names[slot], p.second, jdToDate(sunriseJD + i * dayLen), jdToDate(sunriseJD + (i + 1) * dayLen), true, p.third))
         }
         for (i in 0 until 12) {
-            val p = chaldean[(startIdx + 12 + i) % 7]
-            result.add(HoraInfo(12 + i, p.first, p.second, jdToDate(sunsetJD + i * nightLen), jdToDate(sunsetJD + (i + 1) * nightLen), false, p.third))
+            val slot = (startIdx + 12 + i) % 7
+            val p = chaldean[slot]
+            result.add(HoraInfo(12 + i, names[slot], p.second, jdToDate(sunsetJD + i * nightLen), jdToDate(sunsetJD + (i + 1) * nightLen), false, p.third))
         }
         return result
     }
