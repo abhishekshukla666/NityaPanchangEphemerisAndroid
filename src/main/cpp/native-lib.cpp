@@ -17,11 +17,21 @@ jobject create_double_map(JNIEnv *env, const std::map<std::string, double>& data
     jclass doubleClass = env->FindClass("java/lang/Double");
     jmethodID doubleConstructor = env->GetMethodID(doubleClass, "<init>", "(D)V");
 
+    // Two local refs are created per entry and the JNI spec only guarantees 16 slots
+    // without asking. The eclipse results are the largest maps here at 11 entries — 22
+    // refs — so ask for the room and release each pair as we go rather than relying on
+    // this particular VM being generous.
+    env->EnsureLocalCapacity((jint) data.size() * 2 + 8);
     for (auto const& item : data) {
         jstring jKey = env->NewStringUTF(item.first.c_str());
         jobject jVal = env->NewObject(doubleClass, doubleConstructor, item.second);
-        env->CallObjectMethod(mapObj, putMethod, jKey, jVal);
+        jobject previous = env->CallObjectMethod(mapObj, putMethod, jKey, jVal);
+        if (previous != nullptr) env->DeleteLocalRef(previous);
+        env->DeleteLocalRef(jKey);
+        env->DeleteLocalRef(jVal);
     }
+    env->DeleteLocalRef(doubleClass);
+    env->DeleteLocalRef(mapClass);
     return mapObj;
 }
 
@@ -381,6 +391,87 @@ JNIEXPORT jdouble JNICALL Java_com_nityapanchangam_ephemeris_SwissEphWrapper_cal
     while (asc < 0.0) asc += 360.0;
     while (asc >= 360.0) asc -= 360.0;
     return asc;
+}
+
+JNIEXPORT jobject JNICALL Java_com_nityapanchangam_ephemeris_SwissEphWrapper_nextSolarEclipseVisible(JNIEnv *env, jobject thiz, jdouble jd, jdouble latitude, jdouble longitude, jdouble maxDaysAhead) {
+    // geopos is longitude-first, then latitude, then altitude in metres.
+    // tret/attr are oversized on purpose so a future flag that writes further into
+    // them cannot overrun the stack, and zeroed so a partial fill never leaves garbage.
+    double geopos[3] = {longitude, latitude, 0.0};
+    double tret[20] = {0};
+    double attr[20] = {0};
+    char errorMessage[256] = {0};
+    int32 ifl = SEFLG_SWIEPH;
+
+    // attr is filled by this call for *this* location. It used to be passed as nullptr
+    // and the magnitude taken from a follow-up swe_sol_eclipse_where(), which answers a
+    // different question: where on Earth the eclipse is central, and how deep it is
+    // there. That reported the greatest magnitude anywhere on the globe rather than the
+    // fraction covered at the user's own location — so a grazing local partial could
+    // read as total. swe_sol_eclipse_where also writes its answer back into geopos,
+    // silently overwriting the caller's coordinates.
+    int32 res = swe_sol_eclipse_when_loc(jd, ifl, geopos, tret, attr, 0, errorMessage);
+    if (res < 0) return nullptr;
+
+    double maxJD = tret[0];
+    // The local search runs forward until it finds a visible eclipse, however many years
+    // that takes; anything past the caller's window is not an answer they asked for.
+    if (maxJD <= 0 || maxJD > jd + maxDaysAhead) return nullptr;
+
+    std::map<std::string, double> result;
+    result["maxJD"] = maxJD;
+    result["firstContactJD"] = tret[1];
+    result["secondContactJD"] = tret[2];
+    result["thirdContactJD"] = tret[3];
+    result["fourthContactJD"] = tret[4];
+    // attr[0] is the fraction of the solar diameter covered at this place.
+    result["magnitude"] = attr[0];
+    // Normalised to 1/0. Storing the masked bit itself leaked Swiss Ephemeris' constants
+    // (SE_ECL_TOTAL is 4, SE_ECL_PARTIAL 16) into a field the Kotlin side reads as a flag.
+    result["isTotal"] = (res & SE_ECL_TOTAL) != 0 ? 1.0 : 0.0;
+    // A hybrid annular-total eclipse reports SE_ECL_ANNULAR_TOTAL, not SE_ECL_ANNULAR;
+    // testing only the latter classified it as merely partial.
+    result["isAnnular"] = (res & (SE_ECL_ANNULAR | SE_ECL_ANNULAR_TOTAL)) != 0 ? 1.0 : 0.0;
+    result["isPartial"] = (res & SE_ECL_PARTIAL) != 0 ? 1.0 : 0.0;
+
+    return create_double_map(env, result);
+}
+
+JNIEXPORT jobject JNICALL Java_com_nityapanchangam_ephemeris_SwissEphWrapper_nextLunarEclipseVisible(JNIEnv *env, jobject thiz, jdouble jd, jdouble latitude, jdouble longitude, jdouble maxDaysAhead) {
+    double geopos[3] = {longitude, latitude, 0.0};
+    double tret[20] = {0};
+    double attr[20] = {0};
+    char errorMessage[256] = {0};
+    int32 ifl = SEFLG_SWIEPH;
+
+    int32 res = swe_lun_eclipse_when_loc(jd, ifl, geopos, tret, attr, 0, errorMessage);
+    if (res < 0) return nullptr;
+
+    double maxJD = tret[0];
+    if (maxJD <= 0 || maxJD > jd + maxDaysAhead) return nullptr;
+
+    // Lunar tret layout differs from solar: [1] is unused, the phases start at [2].
+    std::map<std::string, double> result;
+    result["maxJD"] = maxJD;
+    result["partialBeginJD"] = tret[2];
+    result["partialEndJD"] = tret[3];
+    result["totalBeginJD"] = tret[4];
+    result["totalEndJD"] = tret[5];
+    result["penumbralBeginJD"] = tret[6];
+    result["penumbralEndJD"] = tret[7];
+    // Two magnitudes, and which one is meaningful depends on the eclipse: attr[0] is
+    // umbral, attr[1] penumbral. A penumbral eclipse never enters the umbra, so its
+    // attr[0] is legitimately 0 — reporting that as "the" magnitude would make a real
+    // eclipse look like a null result. The Kotlin side picks between them.
+    result["umbralMagnitude"] = attr[0];
+    result["penumbralMagnitude"] = attr[1];
+    result["isTotal"] = (res & SE_ECL_TOTAL) != 0 ? 1.0 : 0.0;
+    result["isPartial"] = (res & SE_ECL_PARTIAL) != 0 ? 1.0 : 0.0;
+    // Without this the Kotlin side had to infer penumbral as "neither of the other two",
+    // which also swallows any result whose flags were unset for an unrelated reason.
+    result["isPenumbral"] = (res & SE_ECL_PENUMBRAL) != 0 ? 1.0 : 0.0;
+
+    return create_double_map(env, result);
 }
 
 JNIEXPORT void JNICALL Java_com_nityapanchangam_ephemeris_SwissEphWrapper_setEphemerisPath(JNIEnv *env, jobject thiz, jstring path) {

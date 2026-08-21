@@ -63,5 +63,9 @@ class SwissEphWrapper(context: Context) {
 
     external fun calculateAscendantAtJD(jd: Double, latitude: Double, longitude: Double): Double
 
+    external fun nextSolarEclipseVisible(jd: Double, latitude: Double, longitude: Double, maxDaysAhead: Double): Map<String, Double>?
+
+    external fun nextLunarEclipseVisible(jd: Double, latitude: Double, longitude: Double, maxDaysAhead: Double): Map<String, Double>?
+
     external fun getJulianDayUTC(year: Int, month: Int, day: Int, hourDecimal: Double): Double
 }

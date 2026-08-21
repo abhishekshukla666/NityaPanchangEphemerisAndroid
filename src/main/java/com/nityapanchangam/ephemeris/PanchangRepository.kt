@@ -382,4 +382,99 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
         val hourDecimal = hour + minute / 60.0 + second / 3600.0
         return wrapper.getJulianDayUTC(year, month, day, hourDecimal)
     }
+
+    suspend fun fetchGrahans(startDate: Date, endDate: Date, latitude: Double, longitude: Double): List<Grahan> = ephemerisCall {
+        if (endDate <= startDate) return@ephemerisCall emptyList<Grahan>()
+        val startJD = dateToJD(startDate)
+        val endJD = dateToJD(endDate)
+
+        val found = mutableListOf<Grahan>()
+        val maxIterations = 200
+
+        // Solar
+        var cursor = startJD
+        for (i in 0 until maxIterations) {
+            val raw = wrapper.nextSolarEclipseVisible(cursor, latitude, longitude, endJD - cursor) ?: break
+            val peakJD = raw["maxJD"] ?: 0.0
+            if (peakJD <= cursor) break
+            
+            found.add(solarGrahan(raw, peakJD))
+            cursor = peakJD + 1.0
+            if (cursor >= endJD) break
+        }
+
+        // Lunar
+        cursor = startJD
+        for (i in 0 until maxIterations) {
+            val raw = wrapper.nextLunarEclipseVisible(cursor, latitude, longitude, endJD - cursor) ?: break
+            val peakJD = raw["maxJD"] ?: 0.0
+            if (peakJD <= cursor) break
+            
+            found.add(lunarGrahan(raw, peakJD))
+            cursor = peakJD + 1.0
+            if (cursor >= endJD) break
+        }
+
+        found.sortedBy { it.peak }
+    }
+
+    private fun solarGrahan(raw: Map<String, Double>, peakJD: Double): Grahan {
+        val isTotal = (raw["isTotal"] ?: 0.0) != 0.0
+        val isAnnular = (raw["isAnnular"] ?: 0.0) != 0.0
+        val extent = when {
+            isTotal -> GrahanExtent.TOTAL
+            isAnnular -> GrahanExtent.ANNULAR
+            else -> GrahanExtent.PARTIAL
+        }
+
+        val first = raw["firstContactJD"] ?: 0.0
+        val fourth = raw["fourthContactJD"] ?: 0.0
+        val second = raw["secondContactJD"] ?: 0.0
+        val third = raw["thirdContactJD"] ?: 0.0
+
+        return Grahan(
+            kind = GrahanKind.SOLAR,
+            extent = extent,
+            peak = jdToDate(peakJD),
+            begins = jdToDate(if (first > 0) first else peakJD),
+            ends = jdToDate(if (fourth > 0) fourth else peakJD),
+            totalityBegins = if (second > 0) jdToDate(second) else null,
+            totalityEnds = if (third > 0) jdToDate(third) else null,
+            magnitude = raw["magnitude"] ?: 0.0
+        )
+    }
+
+    private fun lunarGrahan(raw: Map<String, Double>, peakJD: Double): Grahan {
+        val isTotal = (raw["isTotal"] ?: 0.0) != 0.0
+        val isPartial = (raw["isPartial"] ?: 0.0) != 0.0
+        val extent = when {
+            isTotal -> GrahanExtent.TOTAL
+            isPartial -> GrahanExtent.PARTIAL
+            else -> GrahanExtent.PENUMBRAL
+        }
+
+        val tStart = raw["totalBeginJD"] ?: 0.0
+        val tEnd = raw["totalEndJD"] ?: 0.0
+        val pStart = raw["penumbralBeginJD"] ?: 0.0
+        val pEnd = raw["penumbralEndJD"] ?: 0.0
+        val parStart = raw["partialBeginJD"] ?: 0.0
+        val parEnd = raw["partialEndJD"] ?: 0.0
+
+        val begins = if (pStart > 0) pStart else (if (parStart > 0) parStart else peakJD)
+        val ends = if (pEnd > 0) pEnd else (if (parEnd > 0) parEnd else peakJD)
+
+        val umbral = raw["umbralMagnitude"] ?: 0.0
+        val penumbral = raw["penumbralMagnitude"] ?: 0.0
+
+        return Grahan(
+            kind = GrahanKind.LUNAR,
+            extent = extent,
+            peak = jdToDate(peakJD),
+            begins = jdToDate(begins),
+            ends = jdToDate(ends),
+            totalityBegins = if (tStart > 0) jdToDate(tStart) else null,
+            totalityEnds = if (tEnd > 0) jdToDate(tEnd) else null,
+            magnitude = if (umbral > 0) umbral else penumbral
+        )
+    }
 }
