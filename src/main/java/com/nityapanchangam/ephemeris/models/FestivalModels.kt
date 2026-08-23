@@ -9,8 +9,27 @@ data class HinduFestival(
     val hasIcon: Boolean = false
 )
 
+/**
+ * The instant of the day at which a festival's tithi must prevail.
+ *
+ * SUNSET used to be listed here but no rule ever used it, and the computation had no branch
+ * for it — a rule tagged SUNSET would silently have been evaluated at sunrise. Replaced with
+ * the two instants that are actually needed, matching iOS's ObservationTime exactly.
+ */
 enum class ObservationTime {
-    SUNRISE, MIDNIGHT, SUNSET
+    /** Udaya Tithi — the default for most festivals. */
+    SUNRISE,
+
+    /** Nishita Kaal — Shivratri, Janmashtami. */
+    MIDNIGHT,
+
+    /** Pradosh-vyapini — Diwali Laxmi Puja, Holika Dahan. The tithi must prevail in the
+     *  first fifth of the night after sunset. */
+    PRADOSH_KAAL,
+
+    /** Aparahna-vyapini — Dussehra. The tithi must prevail in the third of five equal
+     *  divisions of daylight. */
+    APARAHNA
 }
 
 data class FestivalRule(
@@ -80,7 +99,7 @@ val allFestivalRules: List<FestivalRule> = listOf(
     FestivalRule("Navratri", 7, 16, "navratri", hasIcon = true),
     FestivalRule("Durga Ashtami", 7, 23, "lion", hasIcon = true),
     FestivalRule("Maha Navami", 7, 24, "🪔"),
-    FestivalRule("Dussehra", 7, 25, "🏹"),
+    FestivalRule("Dussehra", 7, 25, "🏹", ObservationTime.APARAHNA),
     FestivalRule("Sharad Purnima", 7, 30, "🌝"),
 
     // Kartika (8)
@@ -88,7 +107,7 @@ val allFestivalRules: List<FestivalRule> = listOf(
     FestivalRule("Ahoi Ashtami", 8, 8, "⭐"),
     FestivalRule("Dhanteras", 8, 13, "dhanteras", hasIcon = true),
     FestivalRule("Narak Chaturdashi", 8, 14, "🪔"),
-    FestivalRule("Diwali", 8, 15, "diwali", hasIcon = true),
+    FestivalRule("Diwali", 8, 15, "diwali", ObservationTime.PRADOSH_KAAL, hasIcon = true),
     FestivalRule("Govardhan Puja", 8, 16, "🐄"),
     FestivalRule("Bhai Dooj", 8, 17, "bhaidooj", hasIcon = true),
     FestivalRule("Chhath Puja", 8, 21, "☀️"),
@@ -110,7 +129,7 @@ val allFestivalRules: List<FestivalRule> = listOf(
 
     // Phalguna (12)
     FestivalRule("Maha Shivratri", 12, 14, "lordshiv", ObservationTime.MIDNIGHT, hasIcon = true),
-    FestivalRule("Holika Dahan", 12, 29, "🔥"),
+    FestivalRule("Holika Dahan", 12, 29, "🔥", ObservationTime.PRADOSH_KAAL),
     FestivalRule("Holi", 12, 30, "holi", hasIcon = true),
 
     // The 24 Ekadashis

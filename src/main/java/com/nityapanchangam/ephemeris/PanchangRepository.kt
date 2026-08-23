@@ -33,6 +33,15 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
 
     private companion object {
         val ephemerisMutex = Mutex()
+
+        // Pradosh Kaal (Diwali, Holika Dahan) and Aparahna (Dussehra) windows are computed
+        // from real sunrise/sunset, but for a fixed reference point — Ujjain, the traditional
+        // reference meridian for Indian panchangs — rather than the user's live location.
+        // These dates are meant to be one nationally-agreed day, the way a printed calendar
+        // publishes them, not something that shifts with the viewer's GPS the way a personal
+        // Muhurat rightly does.
+        const val REFERENCE_LATITUDE = 23.1765
+        const val REFERENCE_LONGITUDE = 75.7885
     }
 
     /**
@@ -202,36 +211,77 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
 
         while (current.time <= end.time) {
             val calYear = Calendar.getInstance().apply { time = current }.get(Calendar.YEAR)
-            val jdSunrise = dateToJD(current) + (6.0 / 24.0) // Approx sunrise for base metrics
+            val dayStartJD = dateToJD(current)
 
-            // In a real implementation, we'd calculate actual sunrise, but this is a port of the logic
+            // 1. Always compute the sunrise metrics — every rule needs them, either as its own
+            //    anchor or as the proximity check below.
+            val jdSunrise = dayStartJD + (6.0 / 24.0)
             val tithiSunrise = wrapper.calculateTithiNumberForJulianDay(jdSunrise)
             val monthSunrise = wrapper.calculatePurnimantaMonthForJulianDay(jdSunrise)
             val isAdhikSunrise = wrapper.calculateIsPurnimantaAdhikMaasForJulianDay(jdSunrise)
 
-            // Evaluate Rules
+            // 2. One lazy cache per non-sunrise instant, filled the first time a rule that day
+            //    actually needs it. Most days no rule does, so most days pay nothing.
+            var midnight: DayAnchor? = null
+            var pradosh: DayAnchor? = null
+            var aparahna: DayAnchor? = null
+
             for (rule in allFestivalRules) {
-                if (rule.observationTime == ObservationTime.MIDNIGHT) {
+                // Proximity short-circuit shared by every non-sunrise instant: if the sunrise
+                // tithi is nowhere near the rule's target, the real instant — all within about
+                // a day of sunrise — cannot be either. The >= 28 arm handles the wrap from
+                // Amavasya back to Pratipada.
+                fun nearSunrise(): Boolean {
                     val diff = abs(tithiSunrise - rule.tithiNumber)
-                    if (diff > 2 && diff < 28) continue
+                    return diff <= 2 || diff >= 28
+                }
 
-                    val jdMidnight = dateToJD(current) + (23.9 / 24.0)
-                    val tithiMid = wrapper.calculateTithiNumberForJulianDay(jdMidnight)
-                    val monthMid = wrapper.calculatePurnimantaMonthForJulianDay(jdMidnight)
-                    val isAdhikMid = wrapper.calculateIsPurnimantaAdhikMaasForJulianDay(jdMidnight)
+                val anchor: DayAnchor = when (rule.observationTime) {
+                    ObservationTime.SUNRISE ->
+                        DayAnchor(tithiSunrise, monthSunrise, isAdhikSunrise)
 
-                    if (!isAdhikMid && monthMid == rule.lunarMonth && tithiMid == rule.tithiNumber) {
-                        val key = "${rule.name}-$calYear"
-                        if (seen.add(key)) {
-                            festivals.add(HinduFestival(rule.name, current, rule.emoji, rule.hasIcon))
+                    ObservationTime.MIDNIGHT -> {
+                        if (!nearSunrise()) continue
+                        if (midnight == null) {
+                            midnight = anchorAt(dayStartJD + (23.0 * 60 + 59) / 1440.0)
                         }
+                        midnight
                     }
-                } else {
-                    if (!isAdhikSunrise && monthSunrise == rule.lunarMonth && tithiSunrise == rule.tithiNumber) {
-                        val key = "${rule.name}-$calYear"
-                        if (seen.add(key)) {
-                            festivals.add(HinduFestival(rule.name, current, rule.emoji, rule.hasIcon))
+
+                    ObservationTime.PRADOSH_KAAL -> {
+                        if (!nearSunrise()) continue
+                        if (pradosh == null) {
+                            val sun = wrapper.calculateSunriseSunset(dayStartJD, REFERENCE_LATITUDE, REFERENCE_LONGITUDE)
+                            val sunsetJD = sun["sunsetJD"] ?: jdSunrise
+                            val nextSun = wrapper.calculateSunriseSunset(dayStartJD + 1.0, REFERENCE_LATITUDE, REFERENCE_LONGITUDE)
+                            val nextSunriseJD = nextSun["sunriseJD"] ?: (sunsetJD + 0.5)
+                            // First fifth of the night (sunset -> next sunrise), sampled at its midpoint.
+                            val nightLen = max(nextSunriseJD - sunsetJD, 1.0 / 1440.0)
+                            pradosh = anchorAt(sunsetJD + nightLen / 10.0)
                         }
+                        pradosh
+                    }
+
+                    ObservationTime.APARAHNA -> {
+                        if (!nearSunrise()) continue
+                        if (aparahna == null) {
+                            val sun = wrapper.calculateSunriseSunset(dayStartJD, REFERENCE_LATITUDE, REFERENCE_LONGITUDE)
+                            val sunriseRefJD = sun["sunriseJD"] ?: jdSunrise
+                            val sunsetRefJD = sun["sunsetJD"] ?: (sunriseRefJD + 0.5)
+                            // Third of five equal divisions of daylight, sampled at its midpoint.
+                            val dayLen = max(sunsetRefJD - sunriseRefJD, 1.0 / 1440.0)
+                            aparahna = anchorAt(sunriseRefJD + dayLen * 2.5 / 5.0)
+                        }
+                        aparahna
+                    }
+                } ?: continue
+
+                if (anchor.isAdhik || anchor.month !in 1..12) continue
+
+                if (rule.lunarMonth == anchor.month && rule.tithiNumber == anchor.tithi) {
+                    val key = "${rule.name}-$calYear"
+                    if (seen.add(key)) {
+                        festivals.add(HinduFestival(rule.name, current, rule.emoji, rule.hasIcon))
                     }
                 }
             }
@@ -253,7 +303,89 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
             calendar.add(Calendar.DAY_OF_YEAR, 1)
             current = calendar.time
         }
+
+        festivals.addAll(kshayaFallbackFestivals(startDate, endDate, seen))
         festivals.sortedBy { it.date }
+    }
+
+    /** Tithi, Purnimanta month and Adhik flag as they stand at one instant. */
+    private data class DayAnchor(val tithi: Int, val month: Int, val isAdhik: Boolean)
+
+    private fun anchorAt(jd: Double): DayAnchor = DayAnchor(
+        wrapper.calculateTithiNumberForJulianDay(jd),
+        wrapper.calculatePurnimantaMonthForJulianDay(jd),
+        wrapper.calculateIsPurnimantaAdhikMaasForJulianDay(jd)
+    )
+
+    /**
+     * A tithi is "kshaya" (lost) when it starts after one sunrise and ends before the next — it
+     * never touches ANY sunrise, so the loop above, which only asks "what tithi is it AT
+     * sunrise", never finds it and a festival pinned to that tithi silently never fires.
+     *
+     * The exact start/end times are not needed: a kshaya tithi is by definition contained in
+     * exactly one sunrise-to-next-sunrise window — the window whose sunrise tithi is followed,
+     * at the very next sunrise, by a number more than one higher. That gap identifies both
+     * which tithi was skipped and which day held it, with no tie-break required.
+     *
+     * Scoped to SUNRISE rules only, as on iOS. Midnight, Pradosh and Aparahna rules have their
+     * own anchor instants and would need their own gap tracking to fix correctly.
+     */
+    private fun kshayaFallbackFestivals(startDate: Date, endDate: Date, seen: MutableSet<String>): List<HinduFestival> {
+        val windowStart = getStartOfDay(startDate)
+        val windowEnd = getStartOfDay(endDate)
+
+        // One extra day each side, so a kshaya tithi sitting at the window's edge is still
+        // caught: the pair that reveals it may straddle the boundary even though the day it
+        // belongs to is inside.
+        val cursor = Calendar.getInstance().apply {
+            time = windowStart
+            add(Calendar.DAY_OF_YEAR, -1)
+        }
+        val scanEnd = Calendar.getInstance().apply {
+            time = windowEnd
+            add(Calendar.DAY_OF_YEAR, 1)
+        }.time
+
+        val fallback = mutableListOf<HinduFestival>()
+        var previous: Triple<Date, DayAnchor, Int>? = null   // date, anchor, calendar year
+
+        while (cursor.time.time <= scanEnd.time) {
+            val dayStart = getStartOfDay(cursor.time)
+            val anchor = anchorAt(dateToJD(dayStart) + (6.0 / 24.0))
+            val year = Calendar.getInstance().apply { time = dayStart }.get(Calendar.YEAR)
+
+            val prev = previous
+            if (prev != null && !prev.second.isAdhik && !anchor.isAdhik &&
+                prev.first.time >= windowStart.time && prev.first.time <= windowEnd.time
+            ) {
+                // Tithis skipped between the two sunrises. A real kshaya skips one, very rarely
+                // two; anything larger (29, from a same-tithi repeat on a vriddhi day) is not a
+                // kshaya and must not be treated as one.
+                val gap = (((anchor.tithi - prev.second.tithi - 1) % 30) + 30) % 30
+                if (gap in 1..2) {
+                    for (offset in 1..gap) {
+                        val skipped = ((prev.second.tithi - 1 + offset) % 30) + 1
+                        // Tithi 1 always opens the new lunar month, so a skipped Pratipada
+                        // belongs to the day AFTER the gap, not before.
+                        val skippedMonth = if (skipped == 1) anchor.month else prev.second.month
+                        if (skippedMonth !in 1..12) continue
+
+                        for (rule in allFestivalRules) {
+                            if (rule.observationTime != ObservationTime.SUNRISE) continue
+                            if (rule.tithiNumber != skipped || rule.lunarMonth != skippedMonth) continue
+                            val key = "${rule.name}-${prev.third}"
+                            if (seen.add(key)) {
+                                fallback.add(HinduFestival(rule.name, prev.first, rule.emoji, rule.hasIcon))
+                            }
+                        }
+                    }
+                }
+            }
+
+            previous = Triple(dayStart, anchor, year)
+            cursor.add(Calendar.DAY_OF_YEAR, 1)
+        }
+        return fallback
     }
 
     suspend fun fetchBirthChart(date: Date, latitude: Double, longitude: Double): BirthChart = ephemerisCall {
