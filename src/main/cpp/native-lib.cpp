@@ -393,6 +393,32 @@ JNIEXPORT jdouble JNICALL Java_com_nityapanchangam_ephemeris_SwissEphWrapper_cal
     return asc;
 }
 
+JNIEXPORT jint JNICALL Java_com_nityapanchangam_ephemeris_SwissEphWrapper_calculateKaranaForJulianDay(JNIEnv *env, jobject thiz, jdouble jd) {
+    swe_set_sid_mode(SE_SIDM_LAHIRI, 0, 0);
+    double sunPosition[6], moonPosition[6];
+    char errorMessage[256];
+    swe_calc_ut(jd, SE_SUN, SEFLG_SWIEPH | SEFLG_SIDEREAL, sunPosition, errorMessage);
+    swe_calc_ut(jd, SE_MOON, SEFLG_SWIEPH | SEFLG_SIDEREAL, moonPosition, errorMessage);
+    double e = moonPosition[0] - sunPosition[0];
+    if (e < 0) e += 360.0;
+    return (jint)(e / 6.0) + 1;
+}
+
+// A karana is half a tithi (~10-13h in practice), much shorter than a nakshatra or yoga, so
+// the search is capped well below their 1.5-day window.
+JNIEXPORT jdouble JNICALL Java_com_nityapanchangam_ephemeris_SwissEphWrapper_calculateKaranaEndTimeForJulianDay(JNIEnv *env, jobject thiz, jdouble startJD) {
+    jint startingKarana = Java_com_nityapanchangam_ephemeris_SwissEphWrapper_calculateKaranaForJulianDay(env, thiz, startJD);
+    double step = 15.0 / (24.0 * 60.0);
+    double searchJD = startJD;
+    jint searchKarana = startingKarana;
+    while (searchKarana == startingKarana) {
+        searchJD += step;
+        searchKarana = Java_com_nityapanchangam_ephemeris_SwissEphWrapper_calculateKaranaForJulianDay(env, thiz, searchJD);
+        if (searchJD > startJD + 0.833) { break; }
+    }
+    return searchJD;
+}
+
 JNIEXPORT jobject JNICALL Java_com_nityapanchangam_ephemeris_SwissEphWrapper_nextSolarEclipseVisible(JNIEnv *env, jobject thiz, jdouble jd, jdouble latitude, jdouble longitude, jdouble maxDaysAhead) {
     // geopos is longitude-first, then latitude, then altitude in metres.
     // tret/attr are oversized on purpose so a future flag that writes further into

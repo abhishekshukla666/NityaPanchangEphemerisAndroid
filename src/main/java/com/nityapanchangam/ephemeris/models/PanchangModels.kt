@@ -116,5 +116,8 @@ data class PanchangDay(
     val isUttarayana: Boolean,
     val raviYoga: Boolean,
     val horas: List<HoraInfo>,
-    val lagnas: List<LagnaPeriod>
+    val lagnas: List<LagnaPeriod>,
+    /** The day's Vishti (Bhadra) window, or null on the majority of days that have none
+     *  between sunrise and the next sunrise. */
+    val bhadraKaal: Muhurat? = null
 )

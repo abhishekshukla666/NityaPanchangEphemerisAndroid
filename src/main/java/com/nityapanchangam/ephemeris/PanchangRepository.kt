@@ -179,8 +179,49 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
             isUttarayana = isUttarayana,
             raviYoga = raviYoga,
             horas = horas,
-            lagnas = lagnas
+            lagnas = lagnas,
+            bhadraKaal = computeBhadraKaal(sunriseJD, nextSunriseJD)
         )
+    }
+
+    /**
+     * Scans the calendar day (sunrise to next sunrise) for a Vishti (Bhadra) karana window —
+     * the classically inauspicious half-tithi period most people meet through the "don't tie a
+     * Rakhi during Bhadra" rule.
+     *
+     * A karana already under way at sunrise is walked backward to its true start rather than
+     * clipped to sunrise: a warning needs an accurate start time to be useful, not just "some
+     * time before now".
+     */
+    private fun computeBhadraKaal(sunriseJD: Double, nextSunriseJD: Double): Muhurat? {
+        val step = 15.0 / 1440.0
+        var searchJD = sunriseJD
+
+        while (searchJD < nextSunriseJD) {
+            val karanaNum = wrapper.calculateKaranaForJulianDay(searchJD)
+            val endJD = wrapper.calculateKaranaEndTimeForJulianDay(searchJD)
+            // Vishti sits at index 6 of the 7-karana movable cycle (numbers 2-57). The four
+            // fixed karanas (1 and 58-60) can never match, which the range check enforces.
+            val isVishti = karanaNum in 2..57 && (karanaNum - 2) % 7 == 6
+
+            if (isVishti) {
+                var startJD = searchJD
+                while (startJD - step >= sunriseJD - 0.833 &&
+                    wrapper.calculateKaranaForJulianDay(startJD - step) == karanaNum
+                ) {
+                    startJD -= step
+                }
+                return Muhurat(
+                    id = "bhadra",
+                    name = context.getString(R.string.bhadra_kaal),
+                    startTime = jdToDate(startJD),
+                    endTime = jdToDate(minOf(endJD, nextSunriseJD)),
+                    type = MuhuratType.INAUSPICIOUS
+                )
+            }
+            searchJD = endJD
+        }
+        return null
     }
 
     suspend fun fetchMonthTithis(year: Int, month: Int, latitude: Double, longitude: Double): Map<Int, Int> = ephemerisCall {
