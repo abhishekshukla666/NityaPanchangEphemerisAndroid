@@ -242,6 +242,46 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
         results
     }
 
+    /**
+     * Every day in the range reduced to the limbs a date-scan needs, evaluated at each day's
+     * own sunrise — the same reference instant fetchPanchang and the festival scan use, so a
+     * tithi reported here is the tithi those agree the day carries.
+     *
+     * One ephemerisCall for the whole range rather than one per day: the lock is uncontended
+     * for the duration either way, and taking it 400 times would add 400 dispatches for no gain.
+     */
+    suspend fun fetchDailySummaries(
+        startDate: Date,
+        endDate: Date,
+        latitude: Double,
+        longitude: Double
+    ): List<DailyPanchangSummary> = ephemerisCall {
+        val results = mutableListOf<DailyPanchangSummary>()
+        val cursor = Calendar.getInstance().apply { time = getStartOfDay(startDate) }
+        val end = getStartOfDay(endDate).time
+
+        while (cursor.time.time <= end) {
+            val dayStart = cursor.time
+            val jdDayStart = dateToJD(dayStart)
+            val sunriseJD = wrapper.calculateSunriseSunset(jdDayStart, latitude, longitude)["sunriseJD"] ?: 0.0
+            // Falls back to 6am local when sunrise cannot be resolved — above the Arctic circle
+            // it legitimately does not exist on some days, and the scan must still produce a row.
+            val refJD = if (sunriseJD > 2400000) sunriseJD else jdDayStart + (6.0 / 24.0)
+
+            results.add(
+                DailyPanchangSummary(
+                    date = dayStart,
+                    tithiNumber = wrapper.calculateTithiNumberForJulianDay(refJD),
+                    nakshatraNumber = wrapper.calculateNakshatraForJulianDay(refJD),
+                    lunarMonth = wrapper.calculatePurnimantaMonthForJulianDay(refJD),
+                    isAdhikMaas = wrapper.calculateIsPurnimantaAdhikMaasForJulianDay(refJD)
+                )
+            )
+            cursor.add(Calendar.DAY_OF_YEAR, 1)
+        }
+        results
+    }
+
     suspend fun fetchFestivals(startDate: Date, endDate: Date, latitude: Double, longitude: Double): List<HinduFestival> = ephemerisCall {
         val calendar = Calendar.getInstance()
         val festivals = mutableListOf<HinduFestival>()

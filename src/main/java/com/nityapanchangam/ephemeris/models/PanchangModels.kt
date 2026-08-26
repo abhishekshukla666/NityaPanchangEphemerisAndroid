@@ -121,3 +121,19 @@ data class PanchangDay(
      *  between sunrise and the next sunrise. */
     val bhadraKaal: Muhurat? = null
 )
+
+/**
+ * One day reduced to just the limbs a date-scan needs.
+ *
+ * Deliberately far cheaper than a full [PanchangDay]: scanning a year for "when is the next
+ * Ekadashi" means ~400 days, and a full computation each would mean muhurats, planet positions
+ * and 96 ascendant calls per day for data the scan never reads. Everything here comes from four
+ * native calls at sunrise.
+ */
+data class DailyPanchangSummary(
+    val date: Date,
+    val tithiNumber: Int,        // 1-30
+    val nakshatraNumber: Int,    // 1-27
+    val lunarMonth: Int,         // 1-12, Purnimanta
+    val isAdhikMaas: Boolean
+)
