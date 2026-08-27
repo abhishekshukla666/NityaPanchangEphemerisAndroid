@@ -39,6 +39,17 @@ android {
         targetCompatibility = JavaVersion.VERSION_11
     }
 
+    // Ship the .so files with their symbol tables intact. AGP strips native libraries when
+    // it packages an AAR, so a consuming app has nothing left to extract and Play reports
+    // native crashes as bare addresses instead of function names. The consumer still strips
+    // for its own packaging (that is what ndk.debugSymbolLevel does, after extracting the
+    // symbols into the bundle), so this costs AAR size, not installed app size.
+    packaging {
+        jniLibs {
+            keepDebugSymbols += "**/*.so"
+        }
+    }
+
     publishing {
         singleVariant("release")
     }
