@@ -60,6 +60,7 @@ data class StaticFestivalRule(
 val allFestivalRules: List<FestivalRule> = listOf(
 
     // Chaitra (1)
+    FestivalRule("Sheetala Ashtami", 1, 8, "🙏"),
     FestivalRule("Ugadi", 1, 16, "🪷"),
     FestivalRule("Gudi Padwa", 1, 16, "🌾"),
     FestivalRule("Navratri (Chaitra)", 1, 16, "🎊"),
@@ -87,6 +88,9 @@ val allFestivalRules: List<FestivalRule> = listOf(
     FestivalRule("Raksha Bandhan", 5, 30, "🪢"),
 
     // Bhadrapada (6)
+    FestivalRule("Kajari Teej", 6, 3, "🌿"),
+    FestivalRule("Bahula Chaturthi", 6, 4, "🐄"),
+    FestivalRule("Hal Chhath", 6, 6, "🐂"),
     FestivalRule("Krishna Janmashtami", 6, 8, "krishna", hasIcon = true),
     FestivalRule("Hartalika Teej", 6, 18, "🌺"),
     FestivalRule("Ganesh Chaturthi", 6, 19, "ganesh", hasIcon = true),
@@ -95,6 +99,7 @@ val allFestivalRules: List<FestivalRule> = listOf(
     FestivalRule("Anant Chaturdashi", 6, 29, "conch_shell", hasIcon = true),
 
     // Ashwina (7)
+    FestivalRule("Jivitputrika Vrat", 7, 8, "🙏"),
     FestivalRule("Mahalaya Amavasya", 7, 15, "🌚"),
     FestivalRule("Navratri", 7, 16, "navratri", hasIcon = true),
     FestivalRule("Durga Ashtami", 7, 23, "lion", hasIcon = true),
@@ -111,6 +116,7 @@ val allFestivalRules: List<FestivalRule> = listOf(
     FestivalRule("Govardhan Puja", 8, 16, "🐄"),
     FestivalRule("Bhai Dooj", 8, 17, "bhaidooj", hasIcon = true),
     FestivalRule("Chhath Puja", 8, 21, "☀️"),
+    FestivalRule("Gopashtami", 8, 23, "🐄"),
     FestivalRule("Dev Uthani Ekadashi", 8, 26, "🛕"),
     FestivalRule("Tulsi Vivah", 8, 27, "🌿"),
     FestivalRule("Guru Nanak Jayanti", 8, 30, "gurunanak", hasIcon = true),
@@ -125,6 +131,7 @@ val allFestivalRules: List<FestivalRule> = listOf(
     // Magha (11)
     FestivalRule("Mauni Amavasya", 11, 15, "🤫"),
     FestivalRule("Basant Panchami", 11, 20, "spring", hasIcon = true),
+    FestivalRule("Ratha Saptami", 11, 22, "☀️"),
     FestivalRule("Magha Purnima", 11, 30, "🌝"),
 
     // Phalguna (12)
