@@ -140,8 +140,17 @@ data class PanchangDay(
  */
 data class DailyPanchangSummary(
     val date: Date,
-    val tithiNumber: Int,        // 1-30
+    val tithiNumber: Int,        // 1-30, at sunrise (Udaya Tithi)
     val nakshatraNumber: Int,    // 1-27
     val lunarMonth: Int,         // 1-12, Purnimanta
-    val isAdhikMaas: Boolean
+    val isAdhikMaas: Boolean,
+    /**
+     * Tithi prevailing at Pradosh Kaal -- the first fifth of the night after sunset, sampled
+     * at its midpoint -- rather than at sunrise.
+     *
+     * Trayodashi (13/28) is dated by this reading, not by Udaya Tithi: "Pradosh" means dusk.
+     * Matching on [tithiNumber] picks the wrong day whenever Trayodashi begins after sunrise,
+     * is still running that evening, and has ended before the next sunrise.
+     */
+    val pradoshTithiNumber: Int = 0
 )

@@ -279,13 +279,26 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
             // it legitimately does not exist on some days, and the scan must still produce a row.
             val refJD = if (sunriseJD > 2400000) sunriseJD else jdDayStart + (6.0 / 24.0)
 
+            // Pradosh Kaal: first fifth of the night (sunset to next sunrise), at its
+            // midpoint -- the same formula the Diwali and Maha Navami festival rules use, but
+            // at the caller's own location rather than the fixed Ujjain reference, because a
+            // vrat is observed where the observer is rather than on a nationally agreed date.
+            val sunData = wrapper.calculateSunriseSunset(jdDayStart, latitude, longitude)
+            val sunsetJD = sunData["sunsetJD"] ?: refJD
+            val nextSunriseJD = wrapper
+                .calculateSunriseSunset(jdDayStart + 1.0, latitude, longitude)["sunriseJD"]
+                ?: (sunsetJD + 0.5)
+            val nightLen = max(nextSunriseJD - sunsetJD, 1.0 / 1440.0)
+            val jdPradosh = sunsetJD + nightLen / 10.0
+
             results.add(
                 DailyPanchangSummary(
                     date = dayStart,
                     tithiNumber = wrapper.calculateTithiNumberForJulianDay(refJD),
                     nakshatraNumber = wrapper.calculateNakshatraForJulianDay(refJD),
                     lunarMonth = wrapper.calculatePurnimantaMonthForJulianDay(refJD),
-                    isAdhikMaas = wrapper.calculateIsPurnimantaAdhikMaasForJulianDay(refJD)
+                    isAdhikMaas = wrapper.calculateIsPurnimantaAdhikMaasForJulianDay(refJD),
+                    pradoshTithiNumber = wrapper.calculateTithiNumberForJulianDay(jdPradosh)
                 )
             )
             cursor.add(Calendar.DAY_OF_YEAR, 1)
@@ -360,9 +373,11 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
                             val sun = wrapper.calculateSunriseSunset(dayStartJD, REFERENCE_LATITUDE, REFERENCE_LONGITUDE)
                             val sunriseRefJD = sun["sunriseJD"] ?: jdSunrise
                             val sunsetRefJD = sun["sunsetJD"] ?: (sunriseRefJD + 0.5)
-                            // Third of five equal divisions of daylight, sampled at its midpoint.
+                            // Aparahna is the FOURTH of five equal divisions of daylight
+                            // (Pratahkal, Sangava, Madhyahna, Aparahna, Sayahna), sampled at
+                            // its midpoint -- 3.5/5, not 2.5/5, which was Madhyahna's.
                             val dayLen = max(sunsetRefJD - sunriseRefJD, 1.0 / 1440.0)
-                            aparahna = anchorAt(sunriseRefJD + dayLen * 2.5 / 5.0)
+                            aparahna = anchorAt(sunriseRefJD + dayLen * 3.5 / 5.0)
                         }
                         aparahna
                     }

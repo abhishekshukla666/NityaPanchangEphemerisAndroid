@@ -27,7 +27,7 @@ enum class ObservationTime {
      *  first fifth of the night after sunset. */
     PRADOSH_KAAL,
 
-    /** Aparahna-vyapini — Dussehra. The tithi must prevail in the third of five equal
+    /** Aparahna-vyapini — Dussehra. The tithi must prevail in the fourth of five equal
      *  divisions of daylight. */
     APARAHNA
 }
@@ -103,7 +103,7 @@ val allFestivalRules: List<FestivalRule> = listOf(
     FestivalRule("Mahalaya Amavasya", 7, 15, "🌚"),
     FestivalRule("Navratri", 7, 16, "navratri", hasIcon = true),
     FestivalRule("Durga Ashtami", 7, 23, "lion", hasIcon = true),
-    FestivalRule("Maha Navami", 7, 24, "🪔"),
+    FestivalRule("Maha Navami", 7, 24, "🪔", ObservationTime.PRADOSH_KAAL),
     FestivalRule("Dussehra", 7, 25, "🏹", ObservationTime.APARAHNA),
     FestivalRule("Sharad Purnima", 7, 30, "🌝"),
 
