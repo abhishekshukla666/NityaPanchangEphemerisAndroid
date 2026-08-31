@@ -119,7 +119,15 @@ data class PanchangDay(
     val lagnas: List<LagnaPeriod>,
     /** The day's Vishti (Bhadra) window, or null on the majority of days that have none
      *  between sunrise and the next sunrise. */
-    val bhadraKaal: Muhurat? = null
+    val bhadraKaal: Muhurat? = null,
+    /**
+     * The Amanta name for this same day, a display-only parallel to [lunarMonth].
+     *
+     * Every internal rule -- festivals, Ekadashi, Samvat, Ritu -- keeps matching against the
+     * Purnimanta [lunarMonthNumber] whatever this says, so switching the displayed calendar
+     * cannot move a festival. Defaults to "" so existing callers need no change.
+     */
+    val amantaMonth: String = ""
 )
 
 /**

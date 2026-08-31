@@ -211,6 +211,16 @@ JNIEXPORT jint JNICALL Java_com_nityapanchangam_ephemeris_SwissEphWrapper_calcul
     }
 }
 
+// Amanta month -- a thin wrapper over the same getAmantaMonthDetails that the Purnimanta
+// month and both Adhik flags already call, so the four can never disagree with each other.
+// Amanta months close on Amavasya (South and West India); Purnimanta close on Purnima.
+JNIEXPORT jint JNICALL Java_com_nityapanchangam_ephemeris_SwissEphWrapper_calculateAmantaMonthForJulianDay(JNIEnv *env, jobject thiz, jdouble jd) {
+    int month;
+    bool isAdhik;
+    getAmantaMonthDetails(jd, &month, &isAdhik);
+    return month;
+}
+
 JNIEXPORT jboolean JNICALL Java_com_nityapanchangam_ephemeris_SwissEphWrapper_calculateIsAdhikMaasForJulianDay(JNIEnv *env, jobject thiz, jdouble jd) {
     int currentMonth;
     bool currentIsAdhik;

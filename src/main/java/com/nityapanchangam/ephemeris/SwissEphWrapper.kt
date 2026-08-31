@@ -41,6 +41,9 @@ class SwissEphWrapper(context: Context) {
 
     external fun calculatePurnimantaMonthForJulianDay(jd: Double): Int
 
+    /** Amanta month (1-12) -- months closing on Amavasya, as used in South and West India. */
+    external fun calculateAmantaMonthForJulianDay(jd: Double): Int
+
     external fun calculateIsAdhikMaasForJulianDay(jd: Double): Boolean
 
     external fun calculateIsPurnimantaAdhikMaasForJulianDay(jd: Double): Boolean

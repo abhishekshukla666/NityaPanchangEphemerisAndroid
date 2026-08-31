@@ -88,6 +88,14 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
         val monthNum = wrapper.calculatePurnimantaMonthForJulianDay(refJD)
         val monthName = PanchaangHelper.getLunarMonthName(context, monthNum, isAdhik)
 
+        // Amanta -- a display-only parallel to the Purnimanta name above. Everything that
+        // matches on a month (festivals, Ekadashi, Samvat, Ritu) keeps using monthNum, so
+        // which of the two the user reads cannot move a date.
+        val amantaIsAdhik = wrapper.calculateIsAdhikMaasForJulianDay(refJD)
+        val amantaMonthName = PanchaangHelper.getLunarMonthName(
+            context, wrapper.calculateAmantaMonthForJulianDay(refJD), amantaIsAdhik
+        )
+
         val weekday = Calendar.getInstance().apply { time = dayStart }.get(Calendar.DAY_OF_WEEK)
         val mData = wrapper.calculateMuhurats(sunriseJD, sunsetJD, weekday)
 
@@ -159,6 +167,7 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
         PanchangDay(
             date = date,
             lunarMonth = monthName,
+            amantaMonth = amantaMonthName,
             lunarMonthNumber = monthNum,
             isAdhikMaas = isAdhik,
             sunrise = jdToDate(sunriseJD),
