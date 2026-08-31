@@ -8,10 +8,34 @@ import java.util.Date
 
 object PanchaangHelper {
 
+    /**
+     * Resolves a string the consuming app owns, by name.
+     *
+     * These names used to live in this library's own resources, which meant a translator had
+     * two files to find in two repositories, and adding a language meant cutting a library
+     * release before the app could use it. They belong with the other ~200 Panchang names in
+     * the app instead, so this resolves them the same way [getFestivalName] and the tithi,
+     * nakshatra and yoga lookups already do.
+     *
+     * The English fallback matters: a name lookup cannot be checked at compile time, and the
+     * resource shrinker strips what it cannot see referenced. If the app forgets its keep
+     * rule the app shows "Rahu Kaal" rather than a blank row.
+     */
+    internal fun Context.localized(key: String, fallback: String): String {
+        val resId = resources.getIdentifier(key, "string", packageName)
+        return if (resId != 0) getString(resId) else fallback
+    }
+
+    /** [localized] for the two names that take a format argument. */
+    internal fun Context.localizedFormat(key: String, fallback: String, arg: Any): String {
+        val resId = resources.getIdentifier(key, "string", packageName)
+        return if (resId != 0) getString(resId, arg) else String.format(fallback, arg)
+    }
+
     fun getLunarMonthName(context: Context, number: Int, isAdhik: Boolean = false): String {
         val resId = context.resources.getIdentifier("month_$number", "string", context.packageName)
         val name = if (resId != 0) context.getString(resId) else "Month $number"
-        return if (isAdhik) context.getString(R.string.adhik_prefix, name) else name
+        return if (isAdhik) context.localizedFormat("adhik_prefix", "Adhik %s", name) else name
     }
 
     fun getTithiName(context: Context, number: Int): String {
@@ -115,7 +139,7 @@ object PanchaangHelper {
             if (paksha == Paksha.SHUKLA) shukla[idx] else krishna[idx]
         }
         val localizedName = getFestivalName(context, baseName)
-        return context.getString(R.string.ekadashi_suffix, localizedName)
+        return context.localizedFormat("ekadashi_suffix", "%s Ekadashi", localizedName)
     }
 
     fun isGandaMoola(nakshatraNumber: Int): Boolean {
@@ -141,13 +165,13 @@ object PanchaangHelper {
         val calendar = Calendar.getInstance().apply { time = date }
         val weekday = calendar.get(Calendar.DAY_OF_WEEK)
         return when (weekday) {
-            Calendar.SUNDAY -> Triple("पश्चिम", context.getString(R.string.direction_west), "←")
-            Calendar.MONDAY -> Triple("पूर्व", context.getString(R.string.direction_east), "→")
-            Calendar.TUESDAY -> Triple("उत्तर", context.getString(R.string.direction_north), "↑")
-            Calendar.WEDNESDAY -> Triple("उत्तर", context.getString(R.string.direction_north), "↑")
-            Calendar.THURSDAY -> Triple("दक्षिण", context.getString(R.string.direction_south), "↓")
-            Calendar.FRIDAY -> Triple("पश्चिम", context.getString(R.string.direction_west), "←")
-            Calendar.SATURDAY -> Triple("पूर्व", context.getString(R.string.direction_east), "→")
+            Calendar.SUNDAY -> Triple("पश्चिम", context.localized("direction_west", "West"), "←")
+            Calendar.MONDAY -> Triple("पूर्व", context.localized("direction_east", "East"), "→")
+            Calendar.TUESDAY -> Triple("उत्तर", context.localized("direction_north", "North"), "↑")
+            Calendar.WEDNESDAY -> Triple("उत्तर", context.localized("direction_north", "North"), "↑")
+            Calendar.THURSDAY -> Triple("दक्षिण", context.localized("direction_south", "South"), "↓")
+            Calendar.FRIDAY -> Triple("पश्चिम", context.localized("direction_west", "West"), "←")
+            Calendar.SATURDAY -> Triple("पूर्व", context.localized("direction_east", "East"), "→")
             else -> Triple("", "", "")
         }
     }

@@ -9,6 +9,8 @@ import kotlinx.coroutines.withContext
 import java.util.*
 import kotlin.math.abs
 import kotlin.math.max
+import com.nityapanchangam.ephemeris.PanchaangHelper.localized
+import com.nityapanchangam.ephemeris.PanchaangHelper.localizedFormat
 
 /**
  * Panchang computations backed by the Swiss Ephemeris C library.
@@ -92,14 +94,14 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
         fun jdTime(key: String): Date = jdToDate(mData[key] ?: 0.0)
 
         val muhurats = listOf(
-            Muhurat("1", context.getString(R.string.muhurat_brahma), jdTime("brahmaStart"), jdTime("brahmaEnd"), MuhuratType.AUSPICIOUS),
-            Muhurat("2", context.getString(R.string.muhurat_amrit), jdTime("amritStart"), jdTime("amritEnd"), MuhuratType.AUSPICIOUS),
-            Muhurat("3", context.getString(R.string.muhurat_abhijit), jdTime("abhijitStart"), jdTime("abhijitEnd"), MuhuratType.AUSPICIOUS),
-            Muhurat("4", context.getString(R.string.muhurat_vijaya), jdTime("vijayaStart"), jdTime("vijayaEnd"), MuhuratType.AUSPICIOUS),
-            Muhurat("5", context.getString(R.string.muhurat_godhuli), jdTime("godhuliStart"), jdTime("godhuliEnd"), MuhuratType.NEUTRAL),
-            Muhurat("6", context.getString(R.string.muhurat_rahu), jdTime("rahuStart"), jdTime("rahuEnd"), MuhuratType.INAUSPICIOUS),
-            Muhurat("7", context.getString(R.string.muhurat_yamaganda), jdTime("yamaStart"), jdTime("yamaEnd"), MuhuratType.INAUSPICIOUS),
-            Muhurat("8", context.getString(R.string.muhurat_gulik), jdTime("gulikStart"), jdTime("gulikEnd"), MuhuratType.NEUTRAL)
+            Muhurat("1", context.localized("muhurat_brahma", "Brahma Muhurat"), jdTime("brahmaStart"), jdTime("brahmaEnd"), MuhuratType.AUSPICIOUS),
+            Muhurat("2", context.localized("muhurat_amrit", "Amrit Kaal"), jdTime("amritStart"), jdTime("amritEnd"), MuhuratType.AUSPICIOUS),
+            Muhurat("3", context.localized("muhurat_abhijit", "Abhijit Muhurat"), jdTime("abhijitStart"), jdTime("abhijitEnd"), MuhuratType.AUSPICIOUS),
+            Muhurat("4", context.localized("muhurat_vijaya", "Vijaya Muhurat"), jdTime("vijayaStart"), jdTime("vijayaEnd"), MuhuratType.AUSPICIOUS),
+            Muhurat("5", context.localized("muhurat_godhuli", "Godhuli Muhurat"), jdTime("godhuliStart"), jdTime("godhuliEnd"), MuhuratType.NEUTRAL),
+            Muhurat("6", context.localized("muhurat_rahu", "Rahu Kaal"), jdTime("rahuStart"), jdTime("rahuEnd"), MuhuratType.INAUSPICIOUS),
+            Muhurat("7", context.localized("muhurat_yamaganda", "Yamaganda"), jdTime("yamaStart"), jdTime("yamaEnd"), MuhuratType.INAUSPICIOUS),
+            Muhurat("8", context.localized("muhurat_gulik", "Gulik Kaal"), jdTime("gulikStart"), jdTime("gulikEnd"), MuhuratType.NEUTRAL)
         ).sortedBy { it.startTime }
 
         val rawPlanets = wrapper.calculatePlanetPositionsForJulianDay(refJD)
@@ -107,7 +109,7 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
 
         val sunRashiNum = planetPositions.find { it.id == 0 }?.rashiNumber ?: 1
         val isUttarayana = sunRashiNum <= 3 || sunRashiNum >= 10
-        val vedaAyana = if (isUttarayana) context.getString(R.string.ayana_uttarayana) else context.getString(R.string.ayana_dakshinayana)
+        val vedaAyana = if (isUttarayana) context.localized("ayana_uttarayana", "Uttarayana") else context.localized("ayana_dakshinayana", "Dakshinayana")
 
         val raviYoga = listOf(
             listOf(3, 12, 21), // Sun
@@ -120,13 +122,13 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
         )[weekday - 1].contains(nakshatraNum)
 
         val chaughariyaNames = listOf(
-            context.getString(R.string.chaugh_udveg),
-            context.getString(R.string.chaugh_char),
-            context.getString(R.string.chaugh_labh),
-            context.getString(R.string.chaugh_amrit),
-            context.getString(R.string.chaugh_kaal),
-            context.getString(R.string.chaugh_shubh),
-            context.getString(R.string.chaugh_rog)
+            context.localized("chaugh_udveg", "Udveg"),
+            context.localized("chaugh_char", "Char"),
+            context.localized("chaugh_labh", "Labh"),
+            context.localized("chaugh_amrit", "Amrit"),
+            context.localized("chaugh_kaal", "Kaal"),
+            context.localized("chaugh_shubh", "Shubh"),
+            context.localized("chaugh_rog", "Rog")
         )
         val chaughariyaTypes = listOf(MuhuratType.INAUSPICIOUS, MuhuratType.NEUTRAL, MuhuratType.AUSPICIOUS, MuhuratType.AUSPICIOUS, MuhuratType.INAUSPICIOUS, MuhuratType.AUSPICIOUS, MuhuratType.INAUSPICIOUS)
 
@@ -213,7 +215,7 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
                 }
                 return Muhurat(
                     id = "bhadra",
-                    name = context.getString(R.string.bhadra_kaal),
+                    name = context.localized("bhadra_kaal", "Bhadra Kaal"),
                     startTime = jdToDate(startJD),
                     endTime = jdToDate(minOf(endJD, nextSunriseJD)),
                     type = MuhuratType.INAUSPICIOUS
