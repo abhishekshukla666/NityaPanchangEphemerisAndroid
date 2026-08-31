@@ -127,7 +127,14 @@ data class PanchangDay(
      * Purnimanta [lunarMonthNumber] whatever this says, so switching the displayed calendar
      * cannot move a festival. Defaults to "" so existing callers need no change.
      */
-    val amantaMonth: String = ""
+    val amantaMonth: String = "",
+    /**
+     * Tithi at Pradosh Kaal — the first fifth of the night after sunset, at its midpoint.
+     *
+     * Trayodashi is dated by dusk rather than sunrise, so the Pradosh Vrat badge must read
+     * this and not [tithiNumber]. Defaulted so previews and tests need no change.
+     */
+    val pradoshTithiNumber: Int = 0
 )
 
 /**
@@ -138,6 +145,18 @@ data class PanchangDay(
  * and 96 ascendant calls per day for data the scan never reads. Everything here comes from four
  * native calls at sunrise.
  */
+/**
+ * The two tithi readings a calendar cell needs for one day.
+ *
+ * Most markers are Udaya Tithi observances and read [sunriseTithi]; Pradosh Vrat is dated by
+ * dusk and reads [pradoshTithi]. Carrying both avoids a second scan of the month, and avoids
+ * the calendar and the Quick Lookup section disagreeing about the same day.
+ */
+data class MonthDayTithis(
+    val sunriseTithi: Int,
+    val pradoshTithi: Int
+)
+
 data class DailyPanchangSummary(
     val date: Date,
     val tithiNumber: Int,        // 1-30, at sunrise (Udaya Tithi)

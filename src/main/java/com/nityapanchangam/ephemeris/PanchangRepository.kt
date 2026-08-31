@@ -154,6 +154,13 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
         val nextSunData = wrapper.calculateSunriseSunset(dateToJD(nextDayStart), latitude, longitude)
         val nextSunriseJD = nextSunData["sunriseJD"] ?: (sunriseJD + 1.0)
 
+        // Pradosh Kaal tithi -- first fifth of the night after sunset, at its midpoint.
+        // Placed here to reuse nextSunriseJD above: Trayodashi is dated by dusk rather than
+        // sunrise, so the Pradosh Vrat badge cannot read tithiNumber.
+        val pradoshTithi = wrapper.calculateTithiNumberForJulianDay(
+            sunsetJD + max(nextSunriseJD - sunsetJD, 1.0 / 1440.0) / 10.0
+        )
+
         val nightIdx = listOf(5, 1, 4, 0, 3, 6, 2)[weekday - 1]
         val nightSegLen = max(nextSunriseJD - sunsetJD, 1.0 / 1440.0) / 8.0
         val nightChaughariya = (0 until 8).map { i ->
@@ -168,6 +175,7 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
             date = date,
             lunarMonth = monthName,
             amantaMonth = amantaMonthName,
+            pradoshTithiNumber = pradoshTithi,
             lunarMonthNumber = monthNum,
             isAdhikMaas = isAdhik,
             sunrise = jdToDate(sunriseJD),
@@ -235,20 +243,39 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
         return null
     }
 
-    suspend fun fetchMonthTithis(year: Int, month: Int, latitude: Double, longitude: Double): Map<Int, Int> = ephemerisCall {
+    suspend fun fetchMonthTithis(
+        year: Int,
+        month: Int,
+        latitude: Double,
+        longitude: Double
+    ): Map<Int, MonthDayTithis> = ephemerisCall {
         val calendar = Calendar.getInstance()
         calendar.set(year, month - 1, 1, 0, 0, 0)
         calendar.set(Calendar.MILLISECOND, 0)
         val daysInMonth = calendar.getActualMaximum(Calendar.DAY_OF_MONTH)
-        val results = mutableMapOf<Int, Int>()
 
+        // Sunrise and sunset for every day of the month plus the first of the next, gathered
+        // once. Pradosh Kaal needs the FOLLOWING day's sunrise to close the night, and
+        // fetching that separately per day would double the ephemeris calls for this scan.
+        val sunrises = DoubleArray(daysInMonth + 2)
+        val sunsets = DoubleArray(daysInMonth + 2)
+        for (day in 1..daysInMonth + 1) {
+            val c = (calendar.clone() as Calendar).apply { add(Calendar.DAY_OF_MONTH, day - 1) }
+            val jd = dateToJD(c.time)
+            val sun = wrapper.calculateSunriseSunset(jd, latitude, longitude)
+            // Sunrise legitimately does not exist on some polar days; fall back to the day
+            // itself so the scan still yields a row rather than dropping the date.
+            sunrises[day] = (sun["sunriseJD"] ?: 0.0).let { if (it > 2400000) it else jd }
+            sunsets[day] = (sun["sunsetJD"] ?: 0.0).let { if (it > 2400000) it else jd + 0.5 }
+        }
+
+        val results = mutableMapOf<Int, MonthDayTithis>()
         for (day in 1..daysInMonth) {
-            calendar.set(Calendar.DAY_OF_MONTH, day)
-            val date = calendar.time
-            val sunData = wrapper.calculateSunriseSunset(dateToJD(date), latitude, longitude)
-            val sunriseJD = sunData["sunriseJD"] ?: 0.0
-            val refJD = if (sunriseJD > 2400000) sunriseJD else dateToJD(date)
-            results[day] = wrapper.calculateTithiNumberForJulianDay(refJD)
+            val nightLen = max(sunrises[day + 1] - sunsets[day], 1.0 / 1440.0)
+            results[day] = MonthDayTithis(
+                sunriseTithi = wrapper.calculateTithiNumberForJulianDay(sunrises[day]),
+                pradoshTithi = wrapper.calculateTithiNumberForJulianDay(sunsets[day] + nightLen / 10.0)
+            )
         }
         results
     }
