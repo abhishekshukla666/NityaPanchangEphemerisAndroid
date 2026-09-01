@@ -142,8 +142,10 @@ val allFestivalRules: List<FestivalRule> = listOf(
 
     // Phalguna (12)
     FestivalRule("Maha Shivratri", 12, 14, "lordshiv", ObservationTime.MIDNIGHT, hasIcon = true),
-    FestivalRule("Holika Dahan", 12, 29, "🔥", ObservationTime.PRADOSH_KAAL),
-    FestivalRule("Holi", 12, 30, "holi", hasIcon = true),
+    // Holika Dahan and Holi are NOT in this table. Neither can be expressed as "a tithi
+    // prevails at an instant": Holika Dahan is the Purnima Pradosh unless Bhadra runs past
+    // midnight, in which case it defers a day, and Holi is simply the day after whichever
+    // day that lands on. See PanchangRepository.holiFestivals.
 
     // The 24 Ekadashis
 

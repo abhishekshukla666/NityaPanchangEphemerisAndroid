@@ -439,10 +439,110 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
         }
 
         festivals.addAll(kshayaFallbackFestivals(startDate, endDate, seen))
+        festivals.addAll(holiFestivals(startDate, endDate, seen))
         festivals.sortedBy { it.date }
     }
 
     /** Tithi, Purnimanta month and Adhik flag as they stand at one instant. */
+
+    /**
+     * Holika Dahan and Holi, which the festival table cannot express.
+     *
+     * Holika Dahan is lit in Pradosh Kaal on the day Phalguna Purnima prevails there, but
+     * Bhadra must be avoided. If Bhadra ends before midnight the bonfire is lit later that
+     * same night; if it runs past midnight the observance defers to the next day. Holi is
+     * then simply the day after, whichever day that turned out to be — which is why it is not
+     * a fixed tithi either: in 2024 and 2025 it fell on the Purnima sunrise day, in 2023 and
+     * 2026 on Chaitra Krishna Pratipada.
+     *
+     * Verified against the ephemeris for 2023-2026, where the Bhadra end time discriminates
+     * the deferred years from the rest exactly:
+     *
+     *   2023  Bhadra ends 05:17 next morning  -> deferred  -> 7 Mar
+     *   2024  Bhadra ends 23:14 same night    -> same day  -> 24 Mar
+     *   2025  Bhadra ends 23:28 same night    -> same day  -> 13 Mar
+     *   2026  Bhadra ends 05:29 next morning  -> deferred  -> 3 Mar
+     *
+     * Dated at the Ujjain reference like the other Pradosh and Aparahna rules, since these
+     * are nationally agreed dates rather than personal observances.
+     */
+    private fun holiFestivals(startDate: Date, endDate: Date, seen: MutableSet<String>): List<HinduFestival> {
+        val out = mutableListOf<HinduFestival>()
+        // A day either side: Holika Dahan can defer forward out of the window, and Holi is a
+        // further day on, so the Purnima that produces them may sit just before the start.
+        val cursor = Calendar.getInstance().apply {
+            time = getStartOfDay(startDate); add(Calendar.DAY_OF_YEAR, -2)
+        }
+        val scanEnd = Calendar.getInstance().apply {
+            time = getStartOfDay(endDate); add(Calendar.DAY_OF_YEAR, 2)
+        }.time
+
+        while (cursor.time.time <= scanEnd.time) {
+            val dayStart = getStartOfDay(cursor.time)
+            val jdDayStart = dateToJD(dayStart)
+            val sun = wrapper.calculateSunriseSunset(jdDayStart, REFERENCE_LATITUDE, REFERENCE_LONGITUDE)
+            val sunsetJD = sun["sunsetJD"]
+            val nextSunriseJD = wrapper
+                .calculateSunriseSunset(jdDayStart + 1.0, REFERENCE_LATITUDE, REFERENCE_LONGITUDE)["sunriseJD"]
+
+            if (sunsetJD != null && nextSunriseJD != null) {
+                val nightLen = max(nextSunriseJD - sunsetJD, 1.0 / 1440.0)
+                val pradoshJD = sunsetJD + nightLen / 10.0
+                val anchor = anchorAt(pradoshJD)
+
+                // Phalguna Purnima at Pradosh: the one day a year this can fire.
+                if (anchor.tithi == 30 && anchor.month == 12 && !anchor.isAdhik) {
+                    val bhadraEnds = bhadraEndAfter(sunsetJD, sunsetJD + nightLen / 5.0)
+                    val nextMidnight = Calendar.getInstance().apply {
+                        time = dayStart; add(Calendar.DAY_OF_YEAR, 1)
+                    }.time
+                    val defer = bhadraEnds != null && !bhadraEnds.before(nextMidnight)
+
+                    val dahan = if (defer) nextMidnight else dayStart
+                    val holi = Calendar.getInstance().apply {
+                        time = dahan; add(Calendar.DAY_OF_YEAR, 1)
+                    }.time
+                    val year = Calendar.getInstance().apply { time = dahan }.get(Calendar.YEAR)
+
+                    if (seen.add("Holika Dahan-$year")) {
+                        out.add(HinduFestival("Holika Dahan", dahan, "🔥", false))
+                    }
+                    if (seen.add("Holi-$year")) {
+                        out.add(HinduFestival("Holi", holi, "holi", true))
+                    }
+                }
+            }
+            cursor.add(Calendar.DAY_OF_YEAR, 1)
+        }
+        return out.filter { it.date >= getStartOfDay(startDate) && it.date <= getStartOfDay(endDate) }
+    }
+
+    /**
+     * End of the Bhadra window overlapping [windowStart]..[windowEnd], or null when none does.
+     *
+     * Only the end matters here: whether it lands before or after midnight is what decides
+     * the deferral, and a Bhadra that never touches Pradosh cannot block the bonfire at all.
+     */
+    private fun bhadraEndAfter(windowStart: Double, windowEnd: Double): Date? {
+        val step = 15.0 / 1440.0
+        var t = windowStart
+        var found = false
+        while (t <= windowEnd) {
+            if (isVishti(t)) { found = true; break }
+            t += step
+        }
+        if (!found) return null
+        // Walk to the end of this karana. Bounded: a karana runs well under a day.
+        var end = t
+        while (isVishti(end) && end < t + 1.0) end += step
+        return jdToDate(end)
+    }
+
+    private fun isVishti(jd: Double): Boolean {
+        val k = wrapper.calculateKaranaForJulianDay(jd)
+        return k in 2..57 && (k - 2) % 7 == 6
+    }
+
     private data class DayAnchor(val tithi: Int, val month: Int, val isAdhik: Boolean)
 
     private fun anchorAt(jd: Double): DayAnchor = DayAnchor(
