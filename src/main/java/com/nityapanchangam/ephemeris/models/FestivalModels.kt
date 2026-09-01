@@ -109,7 +109,7 @@ val allFestivalRules: List<FestivalRule> = listOf(
     // and the change broke every year where they do not collide: 2025's Navami went to
     // 30 Sep, the day of Durga Ashtami, instead of 1 Oct. Pradosh did not even separate
     // them in 2026; it moved Navami onto 19 Oct, which is Durga Ashtami that year.
-    FestivalRule("Maha Navami", 7, 24, "🪔"),
+    FestivalRule("Maha Navami", 7, 24, "🪔", ObservationTime.APARAHNA),
     FestivalRule("Dussehra", 7, 25, "🏹", ObservationTime.APARAHNA),
     FestivalRule("Sharad Purnima", 7, 30, "🌝"),
 
