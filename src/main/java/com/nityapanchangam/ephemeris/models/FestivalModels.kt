@@ -103,7 +103,13 @@ val allFestivalRules: List<FestivalRule> = listOf(
     FestivalRule("Mahalaya Amavasya", 7, 15, "🌚"),
     FestivalRule("Navratri", 7, 16, "navratri", hasIcon = true),
     FestivalRule("Durga Ashtami", 7, 23, "lion", hasIcon = true),
-    FestivalRule("Maha Navami", 7, 24, "🪔", ObservationTime.PRADOSH_KAAL),
+    // Udaya Tithi, not Pradosh Kaal. iOS moved this to Pradosh to stop Maha Navami and
+    // Dussehra landing on the same day in 2026, but that collision is real -- Navami
+    // prevails at sunrise on 20 Oct 2026 and Dashami prevails at Aparahna the same day --
+    // and the change broke every year where they do not collide: 2025's Navami went to
+    // 30 Sep, the day of Durga Ashtami, instead of 1 Oct. Pradosh did not even separate
+    // them in 2026; it moved Navami onto 19 Oct, which is Durga Ashtami that year.
+    FestivalRule("Maha Navami", 7, 24, "🪔"),
     FestivalRule("Dussehra", 7, 25, "🏹", ObservationTime.APARAHNA),
     FestivalRule("Sharad Purnima", 7, 30, "🌝"),
 
