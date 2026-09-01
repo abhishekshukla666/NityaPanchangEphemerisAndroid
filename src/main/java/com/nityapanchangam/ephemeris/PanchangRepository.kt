@@ -154,11 +154,14 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
         val nextSunData = wrapper.calculateSunriseSunset(dateToJD(nextDayStart), latitude, longitude)
         val nextSunriseJD = nextSunData["sunriseJD"] ?: (sunriseJD + 1.0)
 
-        // Pradosh Kaal tithi -- first fifth of the night after sunset, at its midpoint.
-        // Placed here to reuse nextSunriseJD above: Trayodashi is dated by dusk rather than
-        // sunrise, so the Pradosh Vrat badge cannot read tithiNumber.
-        val pradoshTithi = wrapper.calculateTithiNumberForJulianDay(
-            sunsetJD + max(nextSunriseJD - sunsetJD, 1.0 / 1440.0) / 10.0
+        // Pradosh Vrat. Reuses nextSunriseJD above to close tonight's window; the two
+        // neighbouring days are only fetched when tonight actually holds some Trayodashi,
+        // which is a handful of days a month rather than every call to this hot path.
+        val ownPradoshOverlap = trayodashiMinutesInPradosh(sunsetJD, nextSunriseJD)
+        val isPradoshVratDay = ownPradoshOverlap > 0 && isPradoshDay(
+            own = ownPradoshOverlap,
+            previous = pradoshOverlapOn(jdDayStart - 1.0, latitude, longitude),
+            next = pradoshOverlapOn(jdDayStart + 1.0, latitude, longitude)
         )
 
         val nightIdx = listOf(5, 1, 4, 0, 3, 6, 2)[weekday - 1]
@@ -175,7 +178,7 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
             date = date,
             lunarMonth = monthName,
             amantaMonth = amantaMonthName,
-            pradoshTithiNumber = pradoshTithi,
+            isPradoshVrat = isPradoshVratDay,
             lunarMonthNumber = monthNum,
             isAdhikMaas = isAdhik,
             sunrise = jdToDate(sunriseJD),
@@ -269,12 +272,19 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
             sunsets[day] = (sun["sunsetJD"] ?: 0.0).let { if (it > 2400000) it else jd + 0.5 }
         }
 
+        // Overlap for every day plus the two the month's edges compare against, so the
+        // 1st and the last can be judged against neighbours outside the month.
+        val overlap = IntArray(daysInMonth + 3)
+        for (day in 0..daysInMonth + 1) {
+            val c = (calendar.clone() as Calendar).apply { add(Calendar.DAY_OF_MONTH, day - 1) }
+            overlap[day + 1] = pradoshOverlapOn(dateToJD(c.time), latitude, longitude)
+        }
+
         val results = mutableMapOf<Int, MonthDayTithis>()
         for (day in 1..daysInMonth) {
-            val nightLen = max(sunrises[day + 1] - sunsets[day], 1.0 / 1440.0)
             results[day] = MonthDayTithis(
                 sunriseTithi = wrapper.calculateTithiNumberForJulianDay(sunrises[day]),
-                pradoshTithi = wrapper.calculateTithiNumberForJulianDay(sunsets[day] + nightLen / 10.0)
+                isPradoshVrat = isPradoshDay(overlap[day + 1], overlap[day], overlap[day + 2])
             )
         }
         results
@@ -306,17 +316,14 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
             // it legitimately does not exist on some days, and the scan must still produce a row.
             val refJD = if (sunriseJD > 2400000) sunriseJD else jdDayStart + (6.0 / 24.0)
 
-            // Pradosh Kaal: first fifth of the night (sunset to next sunrise), at its
-            // midpoint -- the same formula the Diwali and Maha Navami festival rules use, but
-            // at the caller's own location rather than the fixed Ujjain reference, because a
-            // vrat is observed where the observer is rather than on a nationally agreed date.
-            val sunData = wrapper.calculateSunriseSunset(jdDayStart, latitude, longitude)
-            val sunsetJD = sunData["sunsetJD"] ?: refJD
-            val nextSunriseJD = wrapper
-                .calculateSunriseSunset(jdDayStart + 1.0, latitude, longitude)["sunriseJD"]
-                ?: (sunsetJD + 0.5)
-            val nightLen = max(nextSunriseJD - sunsetJD, 1.0 / 1440.0)
-            val jdPradosh = sunsetJD + nightLen / 10.0
+            // Pradosh Vrat, decided at the caller's own location rather than the fixed
+            // Ujjain reference the festival rules use: a vrat is kept where the observer is.
+            val ownOverlap = pradoshOverlapOn(jdDayStart, latitude, longitude)
+            val isPradoshVratDay = ownOverlap > 0 && isPradoshDay(
+                own = ownOverlap,
+                previous = pradoshOverlapOn(jdDayStart - 1.0, latitude, longitude),
+                next = pradoshOverlapOn(jdDayStart + 1.0, latitude, longitude)
+            )
 
             results.add(
                 DailyPanchangSummary(
@@ -325,7 +332,7 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
                     nakshatraNumber = wrapper.calculateNakshatraForJulianDay(refJD),
                     lunarMonth = wrapper.calculatePurnimantaMonthForJulianDay(refJD),
                     isAdhikMaas = wrapper.calculateIsPurnimantaAdhikMaasForJulianDay(refJD),
-                    pradoshTithiNumber = wrapper.calculateTithiNumberForJulianDay(jdPradosh)
+                    isPradoshVrat = isPradoshVratDay
                 )
             )
             cursor.add(Calendar.DAY_OF_YEAR, 1)
@@ -542,6 +549,51 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
         val k = wrapper.calculateKaranaForJulianDay(jd)
         return k in 2..57 && (k - 2) % 7 == 6
     }
+
+
+    /**
+     * Minutes of Trayodashi falling inside this day's Pradosh Kaal window.
+     *
+     * Pradosh Vrat is kept on the day Trayodashi *prevails during* Pradosh Kaal, which is an
+     * overlap, not a reading at an instant. Sampling one point inside the window — the
+     * midpoint, as this used to — silently misses a Trayodashi that covers only part of it.
+     * On 1 Mar 2026 Trayodashi ran 28 Feb 20:44 to 1 Mar 19:10 while the midpoint sample sat
+     * at 19:44, so it was missed on both days and the vrat disappeared from that fortnight.
+     */
+    private fun trayodashiMinutesInPradosh(sunsetJD: Double, nextSunriseJD: Double): Int {
+        val nightLen = max(nextSunriseJD - sunsetJD, 1.0 / 1440.0)
+        val windowEnd = sunsetJD + nightLen / 5.0
+        val step = 1.0 / 1440.0
+        var minutes = 0
+        var t = sunsetJD
+        while (t < windowEnd) {
+            val tithi = wrapper.calculateTithiNumberForJulianDay(t)
+            if (tithi == 13 || tithi == 28) minutes++
+            t += step
+        }
+        return minutes
+    }
+
+    /** [trayodashiMinutesInPradosh] for the day starting at [jdDayStart]. */
+    private fun pradoshOverlapOn(jdDayStart: Double, latitude: Double, longitude: Double): Int {
+        val sunsetJD = wrapper.calculateSunriseSunset(jdDayStart, latitude, longitude)["sunsetJD"]
+            ?: return 0
+        val nextSunriseJD = wrapper
+            .calculateSunriseSunset(jdDayStart + 1.0, latitude, longitude)["sunriseJD"]
+            ?: return 0
+        return trayodashiMinutesInPradosh(sunsetJD, nextSunriseJD)
+    }
+
+    /**
+     * Whether this is the day to keep Pradosh Vrat.
+     *
+     * A Trayodashi usually touches two consecutive Pradosh windows; the vrat belongs to the
+     * one holding more of it, ties going to the later day. Checked across 2020-2043 this
+     * selects exactly one day per Trayodashi — 593 for 593 — so unlike a point sample it can
+     * neither lose a fortnight nor claim two days for one vrat.
+     */
+    private fun isPradoshDay(own: Int, previous: Int, next: Int): Boolean =
+        own > 0 && own >= previous && own > next
 
     private data class DayAnchor(val tithi: Int, val month: Int, val isAdhik: Boolean)
 

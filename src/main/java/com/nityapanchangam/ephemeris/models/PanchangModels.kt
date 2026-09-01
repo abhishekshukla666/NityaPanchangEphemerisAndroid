@@ -129,12 +129,14 @@ data class PanchangDay(
      */
     val amantaMonth: String = "",
     /**
-     * Tithi at Pradosh Kaal — the first fifth of the night after sunset, at its midpoint.
+     * Whether Pradosh Vrat is kept on this day.
      *
-     * Trayodashi is dated by dusk rather than sunrise, so the Pradosh Vrat badge must read
-     * this and not [tithiNumber]. Defaulted so previews and tests need no change.
+     * Decided by how much Trayodashi falls inside each day's Pradosh Kaal window rather than
+     * by a tithi read at one instant, because the vrat is dated by the tithi *prevailing
+     * during* dusk. A Trayodashi usually touches two consecutive windows and belongs to
+     * whichever holds more of it.
      */
-    val pradoshTithiNumber: Int = 0
+    val isPradoshVrat: Boolean = false
 )
 
 /**
@@ -154,7 +156,15 @@ data class PanchangDay(
  */
 data class MonthDayTithis(
     val sunriseTithi: Int,
-    val pradoshTithi: Int
+    /**
+     * Whether Pradosh Vrat is kept on this day.
+     *
+     * Decided by how much Trayodashi falls inside each day's Pradosh Kaal window rather than
+     * by a tithi read at one instant, because the vrat is dated by the tithi *prevailing
+     * during* dusk. A Trayodashi usually touches two consecutive windows and belongs to
+     * whichever holds more of it.
+     */
+    val isPradoshVrat: Boolean
 )
 
 data class DailyPanchangSummary(
@@ -164,12 +174,12 @@ data class DailyPanchangSummary(
     val lunarMonth: Int,         // 1-12, Purnimanta
     val isAdhikMaas: Boolean,
     /**
-     * Tithi prevailing at Pradosh Kaal -- the first fifth of the night after sunset, sampled
-     * at its midpoint -- rather than at sunrise.
+     * Whether Pradosh Vrat is kept on this day.
      *
-     * Trayodashi (13/28) is dated by this reading, not by Udaya Tithi: "Pradosh" means dusk.
-     * Matching on [tithiNumber] picks the wrong day whenever Trayodashi begins after sunrise,
-     * is still running that evening, and has ended before the next sunrise.
+     * Decided by how much Trayodashi falls inside each day's Pradosh Kaal window rather than
+     * by a tithi read at one instant, because the vrat is dated by the tithi *prevailing
+     * during* dusk. A Trayodashi usually touches two consecutive windows and belongs to
+     * whichever holds more of it.
      */
-    val pradoshTithiNumber: Int = 0
+    val isPradoshVrat: Boolean = false
 )
