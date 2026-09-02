@@ -114,7 +114,11 @@ val allFestivalRules: List<FestivalRule> = listOf(
     FestivalRule("Sharad Purnima", 7, 30, "🌝"),
 
     // Kartika (8)
-    FestivalRule("Karwa Chauth", 8, 4, "🌝"),
+    // Pradosh, not sunrise: the whole observance is the evening moon sighting, so the day
+    // is the one whose dusk holds Chaturthi. In 2027 Chaturthi runs 18 Oct 17:53 to 19 Oct
+    // 16:43 — it fills the 18th's window and is long gone before the 19th's, while the
+    // sunrise reading pointed at the 19th.
+    FestivalRule("Karwa Chauth", 8, 4, "🌝", ObservationTime.PRADOSH_KAAL),
     FestivalRule("Ahoi Ashtami", 8, 8, "⭐"),
     FestivalRule("Dhanteras", 8, 13, "dhanteras", hasIcon = true),
     FestivalRule("Narak Chaturdashi", 8, 14, "🪔"),
@@ -202,7 +206,8 @@ val allFestivalRules: List<FestivalRule> = listOf(
 val allStaticFestivalRules: List<StaticFestivalRule> = listOf(
     StaticFestivalRule("New Year's Day", 1, 1, "🎆"),
     StaticFestivalRule("Lohri", 1, 13, "🔥"),
-    StaticFestivalRule("Makar Sankranti", 1, 14, "🌾"),
+    // Makar Sankranti is NOT here: it is solar, not a fixed Gregorian date. See
+    // PanchangRepository.makarSankranti.
     StaticFestivalRule("Republic Day", 1, 26, "🇮🇳"),
     StaticFestivalRule("Ambedkar Jayanti", 4, 14, "📜"),
     StaticFestivalRule("Independence Day", 8, 15, "🇮🇳"),

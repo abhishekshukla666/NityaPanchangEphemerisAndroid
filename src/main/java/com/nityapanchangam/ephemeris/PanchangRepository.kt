@@ -390,16 +390,18 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
 
                     ObservationTime.PRADOSH_KAAL -> {
                         if (!nearSunrise()) continue
-                        if (pradosh == null) {
-                            val sun = wrapper.calculateSunriseSunset(dayStartJD, REFERENCE_LATITUDE, REFERENCE_LONGITUDE)
-                            val sunsetJD = sun["sunsetJD"] ?: jdSunrise
-                            val nextSun = wrapper.calculateSunriseSunset(dayStartJD + 1.0, REFERENCE_LATITUDE, REFERENCE_LONGITUDE)
-                            val nextSunriseJD = nextSun["sunriseJD"] ?: (sunsetJD + 0.5)
-                            // First fifth of the night (sunset -> next sunrise), sampled at its midpoint.
-                            val nightLen = max(nextSunriseJD - sunsetJD, 1.0 / 1440.0)
-                            pradosh = anchorAt(sunsetJD + nightLen / 10.0)
-                        }
-                        pradosh
+                        // Overlap with the window, not a reading at its midpoint. Diwali 2027
+                        // is the case that forces this: Amavasya covers 17:51-19:07 on 29 Oct
+                        // and the midpoint sample sits at 19:07, the very minute it ends, so
+                        // no day matched and Diwali vanished from that year.
+                        val own = pradoshOverlapOfTithi(dayStartJD, rule.tithiNumber)
+                        if (own == 0) continue
+                        // A tithi normally reaches two consecutive windows; the festival
+                        // belongs to whichever holds more of it. Only the next day is needed:
+                        // the scan runs forward and `seen` keeps the first match of the year,
+                        // so losing to the next day here is what lets that day win instead.
+                        if (own < pradoshOverlapOfTithi(dayStartJD + 1.0, rule.tithiNumber)) continue
+                        anchorAtTithiInPradosh(dayStartJD, rule.tithiNumber)
                     }
 
                     ObservationTime.APARAHNA -> {
@@ -448,6 +450,18 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
 
         festivals.addAll(kshayaFallbackFestivals(startDate, endDate, seen))
         festivals.addAll(holiFestivals(startDate, endDate, seen))
+
+        // Makar Sankranti, for every year the window touches.
+        val firstYear = Calendar.getInstance().apply { time = startDate }.get(Calendar.YEAR)
+        val lastYear = Calendar.getInstance().apply { time = endDate }.get(Calendar.YEAR)
+        for (year in firstYear..lastYear) {
+            val date = makarSankranti(year)
+            if (date >= getStartOfDay(startDate) && date <= getStartOfDay(endDate) &&
+                seen.add("Makar Sankranti-$year")
+            ) {
+                festivals.add(HinduFestival("Makar Sankranti", date, "🌾", false))
+            }
+        }
         festivals.sortedBy { it.date }
     }
 
@@ -614,6 +628,99 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
      */
     private fun isPradoshDay(own: Int, previous: Int, next: Int): Boolean =
         own > 0 && own >= previous && own > next
+
+
+    /**
+     * Minutes of [tithi] falling inside the Pradosh Kaal window of the day starting at
+     * [jdDayStart], at the Ujjain reference the other festival anchors use.
+     *
+     * Classified from the two window ends and bisected only when a boundary is inside — see
+     * [trayodashiMinutesInPradosh], which does the same for Pradosh Vrat at the caller's own
+     * location. A tithi is far longer than this window, so at most one boundary can fall in it.
+     */
+    private fun pradoshOverlapOfTithi(jdDayStart: Double, tithi: Int): Int {
+        val sun = wrapper.calculateSunriseSunset(jdDayStart, REFERENCE_LATITUDE, REFERENCE_LONGITUDE)
+        val sunsetJD = sun["sunsetJD"] ?: return 0
+        val nextSunriseJD = wrapper
+            .calculateSunriseSunset(jdDayStart + 1.0, REFERENCE_LATITUDE, REFERENCE_LONGITUDE)["sunriseJD"]
+            ?: return 0
+
+        val nightLen = max(nextSunriseJD - sunsetJD, 1.0 / 1440.0)
+        val windowEnd = sunsetJD + nightLen / 5.0
+        val windowMinutes = ((windowEnd - sunsetJD) * 1440.0).roundToInt()
+        if (windowMinutes <= 0) return 0
+
+        val atStart = wrapper.calculateTithiNumberForJulianDay(sunsetJD)
+        val atEnd = wrapper.calculateTithiNumberForJulianDay(windowEnd)
+        if (atStart == atEnd) return if (atStart == tithi) windowMinutes else 0
+        if (atStart != tithi && atEnd != tithi) return 0
+
+        var lo = sunsetJD
+        var hi = windowEnd
+        while (hi - lo > 1.0 / 1440.0) {
+            val mid = (lo + hi) / 2.0
+            if (wrapper.calculateTithiNumberForJulianDay(mid) == atStart) lo = mid else hi = mid
+        }
+        val boundary = (lo + hi) / 2.0
+        val held = if (atStart == tithi) boundary - sunsetJD else windowEnd - boundary
+        return max(0.0, held * 1440.0).roundToInt()
+    }
+
+    /**
+     * The anchor to match a Pradosh festival against, read where [tithi] actually sits inside
+     * the window rather than at a fixed point — so the lunar month travels with the tithi that
+     * qualified, not with whatever happens to occupy the midpoint.
+     */
+    private fun anchorAtTithiInPradosh(jdDayStart: Double, tithi: Int): DayAnchor {
+        val sun = wrapper.calculateSunriseSunset(jdDayStart, REFERENCE_LATITUDE, REFERENCE_LONGITUDE)
+        val sunsetJD = sun["sunsetJD"] ?: return anchorAt(jdDayStart)
+        val nextSunriseJD = wrapper
+            .calculateSunriseSunset(jdDayStart + 1.0, REFERENCE_LATITUDE, REFERENCE_LONGITUDE)["sunriseJD"]
+            ?: (sunsetJD + 0.5)
+        val windowEnd = sunsetJD + max(nextSunriseJD - sunsetJD, 1.0 / 1440.0) / 5.0
+        val at = if (wrapper.calculateTithiNumberForJulianDay(sunsetJD) == tithi) sunsetJD else windowEnd
+        return anchorAt(at)
+    }
+
+
+    /**
+     * Makar Sankranti — the Sun's entry into sidereal Makara (Capricorn).
+     *
+     * Solar, not lunar, and not the fixed 14 January it used to be modelled as: precession
+     * moves the ingress about a day per century, and the observance falls on the next day
+     * whenever the Sankranti itself lands after sunset, since its punya kaal must be in
+     * daylight. That is what makes 2027 the 15th while 2025 and 2026 are the 14th.
+     *
+     * Verified against the ephemeris for 2024-2031, which reproduces every published date:
+     * 2024 15 Jan, 2025 14, 2026 14, 2027 15, 2028 15, 2029 14, 2030 14, 2031 15.
+     */
+    private fun makarSankranti(year: Int): Date {
+        // Bisect the Sun's sidereal longitude onto 270 degrees. The ingress is always in this
+        // window, and the longitude rises monotonically across it.
+        var lo = dateToJD(Calendar.getInstance().apply {
+            clear(); set(year, Calendar.JANUARY, 10)
+        }.time)
+        var hi = dateToJD(Calendar.getInstance().apply {
+            clear(); set(year, Calendar.JANUARY, 20)
+        }.time)
+        while (hi - lo > 1.0 / 86400.0) {
+            val mid = (lo + hi) / 2.0
+            // [id, longitude, rashi, degree] per planet, the Sun first.
+            if (wrapper.calculatePlanetPositionsForJulianDay(mid)[1] < 270.0) lo = mid else hi = mid
+        }
+        val ingressJD = (lo + hi) / 2.0
+
+        val ingressDayStart = getStartOfDay(jdToDate(ingressJD))
+        val sunsetJD = wrapper.calculateSunriseSunset(
+            dateToJD(ingressDayStart), REFERENCE_LATITUDE, REFERENCE_LONGITUDE
+        )["sunsetJD"]
+
+        return if (sunsetJD != null && ingressJD > sunsetJD) {
+            Calendar.getInstance().apply { time = ingressDayStart; add(Calendar.DAY_OF_YEAR, 1) }.time
+        } else {
+            ingressDayStart
+        }
+    }
 
     private data class DayAnchor(val tithi: Int, val month: Int, val isAdhik: Boolean)
 
