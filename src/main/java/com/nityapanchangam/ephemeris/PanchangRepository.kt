@@ -43,6 +43,10 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
         // These dates are meant to be one nationally-agreed day, the way a printed calendar
         // publishes them, not something that shifts with the viewer's GPS the way a personal
         // Muhurat rightly does.
+        /** A few years of days; cleared wholesale rather than evicted, this being a cache
+         *  of a pure function whose cost is one ephemeris call to refill. */
+        private const val MAX_SUNRISE_CACHE = 2000
+
         const val REFERENCE_LATITUDE = 23.1765
         const val REFERENCE_LONGITUDE = 75.7885
     }
@@ -365,7 +369,7 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
 
             // 1. Always compute the sunrise metrics — every rule needs them, either as its own
             //    anchor or as the proximity check below.
-            val jdSunrise = dayStartJD + (6.0 / 24.0)
+            val jdSunrise = referenceSunriseJD(current)
             val tithiSunrise = wrapper.calculateTithiNumberForJulianDay(jdSunrise)
             val monthSunrise = wrapper.calculatePurnimantaMonthForJulianDay(jdSunrise)
             val isAdhikSunrise = wrapper.calculateIsPurnimantaAdhikMaasForJulianDay(jdSunrise)
@@ -447,6 +451,19 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
                 if (anchor.isAdhik || anchor.month !in 1..12) continue
 
                 if (rule.lunarMonth == anchor.month && rule.tithiNumber == anchor.tithi) {
+                    // Vriddhi: when the tithi also holds tomorrow's sunrise, an Ekadashi
+                    // belongs to that second day, not this first one — today is the
+                    // Dashami-viddha side. Everything else keeps the first sunrise its tithi
+                    // touches, which is what the `seen` set already gives it.
+                    if (rule.resolvesForward && rule.observationTime == ObservationTime.SUNRISE) {
+                        val tomorrow = Calendar.getInstance().apply {
+                            time = current; add(Calendar.DAY_OF_YEAR, 1)
+                        }.time
+                        if (wrapper.calculateTithiNumberForJulianDay(referenceSunriseJD(tomorrow))
+                            == rule.tithiNumber
+                        ) continue
+                    }
+
                     val key = "${rule.name}-$calYear"
                     if (seen.add(key)) {
                         festivals.add(HinduFestival(rule.name, current, rule.emoji, rule.hasIcon))
@@ -818,6 +835,43 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
         }.time
     }
 
+
+    /**
+     * Sunrise at the Ujjain reference for the day starting at [dayStart] — the instant every
+     * Udaya Tithi festival rule is matched against.
+     *
+     * This was 06:00 local standing in for sunrise. Real sunrise at Ujjain runs from about
+     * 05:40 in June to 07:10 in January, so the proxy sat up to an hour early and read any
+     * tithi ending inside that gap as still current. Magha Shukla Panchami ends at 06:5x on
+     * 3 Feb 2025: the proxy saw Panchami and dated Basant Panchami and Saraswati Puja to the
+     * 3rd, when the tithi reaches no sunrise at all and belongs — through the kshaya
+     * fallback — to the 2nd, as published.
+     *
+     * Falls back to the old proxy only where sunrise genuinely does not occur, matching
+     * fetchDailySummaries: a scan must still yield a row above the Arctic circle.
+     */
+    private fun referenceSunriseJD(dayStart: Date): Double {
+        val jd = dateToJD(dayStart)
+        // Memoised because this replaced a free constant, and both the festival scan and the
+        // kshaya fallback walk the same days — so a month's festivals asked for sunrise twice
+        // per day. Safe to hold across calls: the reference location is fixed, so a given
+        // day's sunrise never changes. Bounded, since a wide scan would otherwise grow it
+        // without limit.
+        referenceSunriseCache[jd]?.let { return it }
+
+        val sunriseJD = wrapper.calculateSunriseSunset(
+            jd, REFERENCE_LATITUDE, REFERENCE_LONGITUDE
+        )["sunriseJD"] ?: 0.0
+        val resolved = if (sunriseJD > 2_400_000) sunriseJD else jd + (6.0 / 24.0)
+
+        if (referenceSunriseCache.size >= MAX_SUNRISE_CACHE) referenceSunriseCache.clear()
+        referenceSunriseCache[jd] = resolved
+        return resolved
+    }
+
+    /** Guarded by the same serialisation every ephemeris call already goes through. */
+    private val referenceSunriseCache = HashMap<Double, Double>()
+
     private data class DayAnchor(val tithi: Int, val month: Int, val isAdhik: Boolean)
 
     private fun anchorAt(jd: Double): DayAnchor = DayAnchor(
@@ -860,7 +914,7 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
 
         while (cursor.time.time <= scanEnd.time) {
             val dayStart = getStartOfDay(cursor.time)
-            val anchor = anchorAt(dateToJD(dayStart) + (6.0 / 24.0))
+            val anchor = anchorAt(referenceSunriseJD(dayStart))
             val year = Calendar.getInstance().apply { time = dayStart }.get(Calendar.YEAR)
 
             val prev = previous
