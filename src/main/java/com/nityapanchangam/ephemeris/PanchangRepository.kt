@@ -156,8 +156,7 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
             time = dayStart
             add(Calendar.DAY_OF_YEAR, 1)
         }.time
-        val nextSunData = wrapper.calculateSunriseSunset(dateToJD(nextDayStart), latitude, longitude)
-        val nextSunriseJD = nextSunData["sunriseJD"] ?: (sunriseJD + 1.0)
+        val nextSunriseJD = sunriseJDOf(dateToJD(nextDayStart), latitude, longitude) ?: (sunriseJD + 1.0)
 
         // Pradosh Vrat. Reuses nextSunriseJD above to close tonight's window; the two
         // neighbouring days are only fetched when tonight actually holds some Trayodashi,
@@ -262,27 +261,34 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
         calendar.set(Calendar.MILLISECOND, 0)
         val daysInMonth = calendar.getActualMaximum(Calendar.DAY_OF_MONTH)
 
-        // Sunrise and sunset for every day of the month plus the first of the next, gathered
-        // once. Pradosh Kaal needs the FOLLOWING day's sunrise to close the night, and
-        // fetching that separately per day would double the ephemeris calls for this scan.
-        val sunrises = DoubleArray(daysInMonth + 2)
-        val sunsets = DoubleArray(daysInMonth + 2)
-        for (day in 1..daysInMonth + 1) {
-            val c = (calendar.clone() as Calendar).apply { add(Calendar.DAY_OF_MONTH, day - 1) }
+        // Sunrise and sunset gathered once for the whole span this scan needs: the day before
+        // the month, every day of it, and two after. Both the Pradosh overlap and the kshaya
+        // check read the FOLLOWING day, and the month's first and last days are judged against
+        // neighbours outside it.
+        //
+        // Indexed 1..daysInMonth for the month itself, so index 0 is the day before and
+        // daysInMonth+1/+2 the days after. The overlap pass used to re-derive these per day
+        // through pradoshOverlapOn, which fetched sunrise and sunset twice more for every day
+        // the arrays already held -- about 98 ephemeris calls a month where 34 suffice, on a
+        // scan the calendar reruns on every month change.
+        val span = daysInMonth + 3
+        val sunrises = DoubleArray(span)
+        val sunsets = DoubleArray(span)
+        for (i in 0 until span) {
+            val c = (calendar.clone() as Calendar).apply { add(Calendar.DAY_OF_MONTH, i - 1) }
             val jd = dateToJD(c.time)
-            val sun = wrapper.calculateSunriseSunset(jd, latitude, longitude)
+            val sun = wrapper.calculateSunTimes(jd, latitude, longitude)
             // Sunrise legitimately does not exist on some polar days; fall back to the day
             // itself so the scan still yields a row rather than dropping the date.
-            sunrises[day] = (sun["sunriseJD"] ?: 0.0).let { if (it > 2400000) it else jd }
-            sunsets[day] = (sun["sunsetJD"] ?: 0.0).let { if (it > 2400000) it else jd + 0.5 }
+            sunrises[i] = sun[0].takeIf { it > 2_400_000 } ?: jd
+            sunsets[i] = sun[1].takeIf { it > 2_400_000 } ?: (jd + 0.5)
         }
 
-        // Overlap for every day plus the two the month's edges compare against, so the
-        // 1st and the last can be judged against neighbours outside the month.
+        // Overlap for every day plus the two the month's edges compare against, read straight
+        // off the arrays above rather than fetched again.
         val overlap = IntArray(daysInMonth + 3)
-        for (day in 0..daysInMonth + 1) {
-            val c = (calendar.clone() as Calendar).apply { add(Calendar.DAY_OF_MONTH, day - 1) }
-            overlap[day + 1] = pradoshOverlapOn(dateToJD(c.time), latitude, longitude)
+        for (i in 0..daysInMonth + 1) {
+            overlap[i + 1] = trayodashiMinutesInPradosh(sunsets[i], sunrises[i + 1])
         }
 
         val results = mutableMapOf<Int, MonthDayTithis>()
@@ -326,7 +332,7 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
         while (cursor.time.time <= end) {
             val dayStart = cursor.time
             val jdDayStart = dateToJD(dayStart)
-            val sunriseJD = wrapper.calculateSunriseSunset(jdDayStart, latitude, longitude)["sunriseJD"] ?: 0.0
+            val sunriseJD = sunriseJDOf(jdDayStart, latitude, longitude) ?: 0.0
             // Falls back to 6am local when sunrise cannot be resolved — above the Arctic circle
             // it legitimately does not exist on some days, and the scan must still produce a row.
             val refJD = if (sunriseJD > 2400000) sunriseJD else jdDayStart + (6.0 / 24.0)
@@ -422,9 +428,9 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
                     ObservationTime.MADHYAHNA -> {
                         if (!nearSunrise()) continue
                         if (madhyahna == null) {
-                            val sun = wrapper.calculateSunriseSunset(dayStartJD, REFERENCE_LATITUDE, REFERENCE_LONGITUDE)
-                            val sunriseRefJD = sun["sunriseJD"] ?: jdSunrise
-                            val sunsetRefJD = sun["sunsetJD"] ?: (sunriseRefJD + 0.5)
+                            val sun = wrapper.calculateSunTimes(dayStartJD, REFERENCE_LATITUDE, REFERENCE_LONGITUDE)
+                            val sunriseRefJD = sun[0].takeIf { it > 2_400_000 } ?: jdSunrise
+                            val sunsetRefJD = sun[1].takeIf { it > 2_400_000 } ?: (sunriseRefJD + 0.5)
                             // Third of five equal divisions of daylight, at its midpoint.
                             val dayLen = max(sunsetRefJD - sunriseRefJD, 1.0 / 1440.0)
                             madhyahna = anchorAt(sunriseRefJD + dayLen * 2.5 / 5.0)
@@ -435,9 +441,9 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
                     ObservationTime.APARAHNA -> {
                         if (!nearSunrise()) continue
                         if (aparahna == null) {
-                            val sun = wrapper.calculateSunriseSunset(dayStartJD, REFERENCE_LATITUDE, REFERENCE_LONGITUDE)
-                            val sunriseRefJD = sun["sunriseJD"] ?: jdSunrise
-                            val sunsetRefJD = sun["sunsetJD"] ?: (sunriseRefJD + 0.5)
+                            val sun = wrapper.calculateSunTimes(dayStartJD, REFERENCE_LATITUDE, REFERENCE_LONGITUDE)
+                            val sunriseRefJD = sun[0].takeIf { it > 2_400_000 } ?: jdSunrise
+                            val sunsetRefJD = sun[1].takeIf { it > 2_400_000 } ?: (sunriseRefJD + 0.5)
                             // Aparahna is the FOURTH of five equal divisions of daylight
                             // (Pratahkal, Sangava, Madhyahna, Aparahna, Sayahna), sampled at
                             // its midpoint -- 3.5/5, not 2.5/5, which was Madhyahna's.
@@ -555,10 +561,9 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
         while (cursor.time.time <= scanEnd.time) {
             val dayStart = getStartOfDay(cursor.time)
             val jdDayStart = dateToJD(dayStart)
-            val sun = wrapper.calculateSunriseSunset(jdDayStart, REFERENCE_LATITUDE, REFERENCE_LONGITUDE)
-            val sunsetJD = sun["sunsetJD"]
-            val nextSunriseJD = wrapper
-                .calculateSunriseSunset(jdDayStart + 1.0, REFERENCE_LATITUDE, REFERENCE_LONGITUDE)["sunriseJD"]
+            val sun = wrapper.calculateSunTimes(jdDayStart, REFERENCE_LATITUDE, REFERENCE_LONGITUDE)
+            val sunsetJD = sun[1].takeIf { it > 2_400_000 }
+            val nextSunriseJD = sunriseJDOf(jdDayStart + 1.0, REFERENCE_LATITUDE, REFERENCE_LONGITUDE)
 
             if (sunsetJD != null && nextSunriseJD != null) {
                 val nightLen = max(nextSunriseJD - sunsetJD, 1.0 / 1440.0)
@@ -663,10 +668,9 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
 
     /** [trayodashiMinutesInPradosh] for the day starting at [jdDayStart]. */
     private fun pradoshOverlapOn(jdDayStart: Double, latitude: Double, longitude: Double): Int {
-        val sunsetJD = wrapper.calculateSunriseSunset(jdDayStart, latitude, longitude)["sunsetJD"]
+        val sunsetJD = sunsetJDOf(jdDayStart, latitude, longitude)
             ?: return 0
-        val nextSunriseJD = wrapper
-            .calculateSunriseSunset(jdDayStart + 1.0, latitude, longitude)["sunriseJD"]
+        val nextSunriseJD = sunriseJDOf(jdDayStart + 1.0, latitude, longitude)
             ?: return 0
         return trayodashiMinutesInPradosh(sunsetJD, nextSunriseJD)
     }
@@ -692,10 +696,9 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
      * location. A tithi is far longer than this window, so at most one boundary can fall in it.
      */
     private fun pradoshOverlapOfTithi(jdDayStart: Double, tithi: Int): Int {
-        val sun = wrapper.calculateSunriseSunset(jdDayStart, REFERENCE_LATITUDE, REFERENCE_LONGITUDE)
-        val sunsetJD = sun["sunsetJD"] ?: return 0
-        val nextSunriseJD = wrapper
-            .calculateSunriseSunset(jdDayStart + 1.0, REFERENCE_LATITUDE, REFERENCE_LONGITUDE)["sunriseJD"]
+        val sun = wrapper.calculateSunTimes(jdDayStart, REFERENCE_LATITUDE, REFERENCE_LONGITUDE)
+        val sunsetJD = sun[1].takeIf { it > 2_400_000 } ?: return 0
+        val nextSunriseJD = sunriseJDOf(jdDayStart + 1.0, REFERENCE_LATITUDE, REFERENCE_LONGITUDE)
             ?: return 0
 
         val nightLen = max(nextSunriseJD - sunsetJD, 1.0 / 1440.0)
@@ -725,10 +728,9 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
      * qualified, not with whatever happens to occupy the midpoint.
      */
     private fun anchorAtTithiInPradosh(jdDayStart: Double, tithi: Int): DayAnchor {
-        val sun = wrapper.calculateSunriseSunset(jdDayStart, REFERENCE_LATITUDE, REFERENCE_LONGITUDE)
-        val sunsetJD = sun["sunsetJD"] ?: return anchorAt(jdDayStart)
-        val nextSunriseJD = wrapper
-            .calculateSunriseSunset(jdDayStart + 1.0, REFERENCE_LATITUDE, REFERENCE_LONGITUDE)["sunriseJD"]
+        val sun = wrapper.calculateSunTimes(jdDayStart, REFERENCE_LATITUDE, REFERENCE_LONGITUDE)
+        val sunsetJD = sun[1].takeIf { it > 2_400_000 } ?: return anchorAt(jdDayStart)
+        val nextSunriseJD = sunriseJDOf(jdDayStart + 1.0, REFERENCE_LATITUDE, REFERENCE_LONGITUDE)
             ?: (sunsetJD + 0.5)
         val windowEnd = sunsetJD + max(nextSunriseJD - sunsetJD, 1.0 / 1440.0) / 5.0
         val at = if (wrapper.calculateTithiNumberForJulianDay(sunsetJD) == tithi) sunsetJD else windowEnd
@@ -774,9 +776,7 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
      */
     private fun sankrantiDeferringPastSunset(ingressJD: Double): Date {
         val ingressDayStart = getStartOfDay(jdToDate(ingressJD))
-        val sunsetJD = wrapper.calculateSunriseSunset(
-            dateToJD(ingressDayStart), REFERENCE_LATITUDE, REFERENCE_LONGITUDE
-        )["sunsetJD"]
+        val sunsetJD = sunsetJDOf(dateToJD(ingressDayStart), REFERENCE_LATITUDE, REFERENCE_LONGITUDE)
         return if (sunsetJD != null && ingressJD > sunsetJD) {
             Calendar.getInstance().apply { time = ingressDayStart; add(Calendar.DAY_OF_YEAR, 1) }.time
         } else {
@@ -795,9 +795,7 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
      */
     private fun sankrantiByHinduDay(ingressJD: Double): Date {
         val clockDayStart = getStartOfDay(jdToDate(ingressJD))
-        val sunriseJD = wrapper.calculateSunriseSunset(
-            dateToJD(clockDayStart), REFERENCE_LATITUDE, REFERENCE_LONGITUDE
-        )["sunriseJD"]
+        val sunriseJD = sunriseJDOf(dateToJD(clockDayStart), REFERENCE_LATITUDE, REFERENCE_LONGITUDE)
         return if (sunriseJD != null && ingressJD < sunriseJD) {
             Calendar.getInstance().apply { time = clockDayStart; add(Calendar.DAY_OF_YEAR, -1) }.time
         } else {
@@ -859,9 +857,9 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
         // without limit.
         referenceSunriseCache[jd]?.let { return it }
 
-        val sunriseJD = wrapper.calculateSunriseSunset(
+        val sunriseJD = sunriseJDOf(
             jd, REFERENCE_LATITUDE, REFERENCE_LONGITUDE
-        )["sunriseJD"] ?: 0.0
+        ) ?: 0.0
         val resolved = if (sunriseJD > 2_400_000) sunriseJD else jd + (6.0 / 24.0)
 
         if (referenceSunriseCache.size >= MAX_SUNRISE_CACHE) referenceSunriseCache.clear()
@@ -871,6 +869,16 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
 
     /** Guarded by the same serialisation every ephemeris call already goes through. */
     private val referenceSunriseCache = HashMap<Double, Double>()
+
+
+
+    /** Sunrise for this day, or null where the sun does not rise. Sun-only: see the native. */
+    private fun sunriseJDOf(jd: Double, latitude: Double, longitude: Double): Double? =
+        wrapper.calculateSunTimes(jd, latitude, longitude)[0].takeIf { it > 2_400_000 }
+
+    /** Sunset for this day, or null where the sun does not set. */
+    private fun sunsetJDOf(jd: Double, latitude: Double, longitude: Double): Double? =
+        wrapper.calculateSunTimes(jd, latitude, longitude)[1].takeIf { it > 2_400_000 }
 
     private data class DayAnchor(val tithi: Int, val month: Int, val isAdhik: Boolean)
 

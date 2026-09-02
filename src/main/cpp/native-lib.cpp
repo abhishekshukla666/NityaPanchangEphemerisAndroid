@@ -98,6 +98,31 @@ JNIEXPORT jobject JNICALL Java_com_nityapanchangam_ephemeris_SwissEphWrapper_cal
     return create_double_map(env, result);
 }
 
+// Sunrise and sunset only, as a two-element array.
+//
+// calculateSunriseSunset below also computes moonrise and moonset, which cost about as much
+// again as the sun pair -- and of its seventeen call sites in PanchangRepository, exactly one
+// reads the moon. The month scan alone made ~98 of those calls and used the moon in none of
+// them. An array rather than a map because a scan of a month makes tens of these and the map
+// allocation is pure overhead at that rate.
+JNIEXPORT jdoubleArray JNICALL Java_com_nityapanchangam_ephemeris_SwissEphWrapper_calculateSunTimes(JNIEnv *env, jobject thiz, jdouble jd, jdouble latitude, jdouble longitude) {
+    swe_set_topo(longitude, latitude, 0);
+
+    double riseTret[3] = {0, 0, 0};
+    double setTret[3] = {0, 0, 0};
+    char errorMessage[256];
+    char starname[] = "";
+    double geopos[3] = {longitude, latitude, 0.0};
+
+    swe_rise_trans(jd, SE_SUN, starname, SEFLG_SWIEPH, SE_CALC_RISE, geopos, 0.0, 0.0, riseTret, errorMessage);
+    swe_rise_trans(jd, SE_SUN, starname, SEFLG_SWIEPH, SE_CALC_SET, geopos, 0.0, 0.0, setTret, errorMessage);
+
+    jdouble out[2] = { riseTret[0], setTret[0] };
+    jdoubleArray result = env->NewDoubleArray(2);
+    if (result != NULL) env->SetDoubleArrayRegion(result, 0, 2, out);
+    return result;
+}
+
 JNIEXPORT jobject JNICALL Java_com_nityapanchangam_ephemeris_SwissEphWrapper_calculateSunriseSunset(JNIEnv *env, jobject thiz, jdouble jd, jdouble latitude, jdouble longitude) {
     swe_set_topo(longitude, latitude, 0);
 

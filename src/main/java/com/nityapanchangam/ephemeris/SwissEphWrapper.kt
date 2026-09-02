@@ -35,6 +35,10 @@ class SwissEphWrapper(context: Context) {
 
     external fun calculateTithiForJulianDay(jd: Double): Map<String, Double>
 
+    /** [sunriseJD, sunsetJD]; 0.0 where the event does not occur. Half the cost of
+     *  [calculateSunriseSunset], which also computes moonrise and moonset. */
+    external fun calculateSunTimes(jd: Double, latitude: Double, longitude: Double): DoubleArray
+
     external fun calculateSunriseSunset(jd: Double, latitude: Double, longitude: Double): Map<String, Double>
 
     external fun calculateLunarMonthForJulianDay(jd: Double): Int
