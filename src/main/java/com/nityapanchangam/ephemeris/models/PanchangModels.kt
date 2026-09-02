@@ -157,6 +157,15 @@ data class PanchangDay(
 data class MonthDayTithis(
     val sunriseTithi: Int,
     /**
+     * A tithi that began after this day's sunrise and ended before the next, so it reaches no
+     * sunrise anywhere and [sunriseTithi] cannot show it — 0 when there is none.
+     *
+     * The calendar's Purnima and Amavasya badges need this or they silently skip a fortnight:
+     * Purnima is lost this way on 23 Dec 2026, where the 23rd reads 29 and the 24th already
+     * reads 1. The full or new moon still happens on the day that held it, which is this day.
+     */
+    val lostTithi: Int = 0,
+    /**
      * Whether Pradosh Vrat is kept on this day.
      *
      * Decided by how much Trayodashi falls inside each day's Pradosh Kaal window rather than

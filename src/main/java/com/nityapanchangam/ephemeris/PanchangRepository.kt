@@ -283,8 +283,18 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
 
         val results = mutableMapOf<Int, MonthDayTithis>()
         for (day in 1..daysInMonth) {
+            val tithi = wrapper.calculateTithiNumberForJulianDay(sunrises[day])
+            // Tithis skipped between this sunrise and the next belong to this day, which held
+            // them. Only a gap of one or two is a real kshaya; anything wider is a vriddhi
+            // artefact -- the same bound the festival fallback uses. Where two are lost at
+            // once, the one the calendar can actually draw wins.
+            val nextTithi = wrapper.calculateTithiNumberForJulianDay(sunrises[day + 1])
+            val gap = (((nextTithi - tithi - 1) % 30) + 30) % 30
+            val skipped = if (gap in 1..2) (1..gap).map { ((tithi - 1 + it) % 30) + 1 } else emptyList()
+
             results[day] = MonthDayTithis(
-                sunriseTithi = wrapper.calculateTithiNumberForJulianDay(sunrises[day]),
+                sunriseTithi = tithi,
+                lostTithi = skipped.firstOrNull { it == 15 || it == 30 } ?: skipped.firstOrNull() ?: 0,
                 isPradoshVrat = isPradoshDay(overlap[day + 1], overlap[day], overlap[day + 2])
             )
         }
@@ -365,6 +375,7 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
             var midnight: DayAnchor? = null
             var pradosh: DayAnchor? = null
             var aparahna: DayAnchor? = null
+            var madhyahna: DayAnchor? = null
 
             for (rule in allFestivalRules) {
                 // Proximity short-circuit shared by every non-sunrise instant: if the sunrise
@@ -402,6 +413,19 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
                         // so losing to the next day here is what lets that day win instead.
                         if (own < pradoshOverlapOfTithi(dayStartJD + 1.0, rule.tithiNumber)) continue
                         anchorAtTithiInPradosh(dayStartJD, rule.tithiNumber)
+                    }
+
+                    ObservationTime.MADHYAHNA -> {
+                        if (!nearSunrise()) continue
+                        if (madhyahna == null) {
+                            val sun = wrapper.calculateSunriseSunset(dayStartJD, REFERENCE_LATITUDE, REFERENCE_LONGITUDE)
+                            val sunriseRefJD = sun["sunriseJD"] ?: jdSunrise
+                            val sunsetRefJD = sun["sunsetJD"] ?: (sunriseRefJD + 0.5)
+                            // Third of five equal divisions of daylight, at its midpoint.
+                            val dayLen = max(sunsetRefJD - sunriseRefJD, 1.0 / 1440.0)
+                            madhyahna = anchorAt(sunriseRefJD + dayLen * 2.5 / 5.0)
+                        }
+                        madhyahna
                     }
 
                     ObservationTime.APARAHNA -> {

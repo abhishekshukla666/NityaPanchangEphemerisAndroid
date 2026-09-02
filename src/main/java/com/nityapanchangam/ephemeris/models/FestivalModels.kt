@@ -29,7 +29,12 @@ enum class ObservationTime {
 
     /** Aparahna-vyapini — Dussehra. The tithi must prevail in the fourth of five equal
      *  divisions of daylight. */
-    APARAHNA
+    APARAHNA,
+
+    /** Madhyahna-vyapini — Akshaya Tritiya. The THIRD of the five divisions, so midday
+     *  rather than afternoon: the two are one division apart and pick different days
+     *  whenever the tithi turns over between them. */
+    MADHYAHNA
 }
 
 data class FestivalRule(
@@ -68,8 +73,10 @@ val allFestivalRules: List<FestivalRule> = listOf(
     FestivalRule("Hanuman Jayanti", 1, 30, "gada", hasIcon = true),
 
     // Vaishakha (2)
-    FestivalRule("Akshaya Tritiya", 2, 18, "gold_pot", hasIcon = true),
-    FestivalRule("Parshuram Jayanti", 2, 18, "axe", hasIcon = true),
+    // Madhyahna, not sunrise. Tritiya at midday is what dates these: in 2026 it reaches
+    // sunrise only on 20 Apr but holds midday on the 19th, and 2023 splits the same way.
+    FestivalRule("Akshaya Tritiya", 2, 18, "gold_pot", ObservationTime.MADHYAHNA, hasIcon = true),
+    FestivalRule("Parshuram Jayanti", 2, 18, "axe", ObservationTime.MADHYAHNA, hasIcon = true),
     FestivalRule("Buddha Purnima", 2, 30, "buddha", hasIcon = true),
 
     // Jyeshtha (3)
@@ -120,7 +127,9 @@ val allFestivalRules: List<FestivalRule> = listOf(
     // sunrise reading pointed at the 19th.
     FestivalRule("Karwa Chauth", 8, 4, "🌝", ObservationTime.PRADOSH_KAAL),
     FestivalRule("Ahoi Ashtami", 8, 8, "⭐"),
-    FestivalRule("Dhanteras", 8, 13, "dhanteras", hasIcon = true),
+    // Pradosh: the Dhanteras puja is at dusk, like Diwali two days later. Sunrise put it a
+    // day late in 2023, 2024, 2025 and 2026 alike.
+    FestivalRule("Dhanteras", 8, 13, "dhanteras", ObservationTime.PRADOSH_KAAL, hasIcon = true),
     FestivalRule("Narak Chaturdashi", 8, 14, "🪔"),
     FestivalRule("Diwali", 8, 15, "diwali", ObservationTime.PRADOSH_KAAL, hasIcon = true),
     FestivalRule("Govardhan Puja", 8, 16, "🐄"),
