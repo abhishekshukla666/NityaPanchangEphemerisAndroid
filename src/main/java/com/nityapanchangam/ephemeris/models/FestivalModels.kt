@@ -81,6 +81,8 @@ val allFestivalRules: List<FestivalRule> = listOf(
 
     // Jyeshtha (3)
     FestivalRule("Vat Savitri Vrat", 3, 15, "🌳"),
+    FestivalRule("Shankaracharya Jayanti", 2, 20, "🕉️"),
+    FestivalRule("Surdas Jayanti", 2, 20, "🎵"),
     FestivalRule("Ganga Dussehra", 3, 25, "🌊"),
     FestivalRule("Vat Savitri Purnima", 3, 30, "🌳"),
 
@@ -153,6 +155,8 @@ val allFestivalRules: List<FestivalRule> = listOf(
     // Magha (11)
     FestivalRule("Mauni Amavasya", 11, 15, "🤫"),
     FestivalRule("Basant Panchami", 11, 20, "spring", hasIcon = true),
+    // The same day under its other name — Vasant Panchami is when Saraswati is worshipped.
+    FestivalRule("Saraswati Puja", 11, 20, "📖"),
     FestivalRule("Ratha Saptami", 11, 22, "☀️"),
     FestivalRule("Magha Purnima", 11, 30, "🌝"),
 
@@ -221,9 +225,15 @@ val allStaticFestivalRules: List<StaticFestivalRule> = listOf(
     // Makar Sankranti is NOT here: it is solar, not a fixed Gregorian date. See
     // PanchangRepository.makarSankranti.
     StaticFestivalRule("Republic Day", 1, 26, "🇮🇳"),
+    // Observed on the Gregorian date by the Maharashtra government, which is how it is
+    // printed on calendars; the tithi reckoning (Phalguna Krishna Tritiya) is a separate
+    // observance and not what most people look for.
+    StaticFestivalRule("Shivaji Jayanti", 2, 19, "🚩"),
     StaticFestivalRule("Ambedkar Jayanti", 4, 14, "📜"),
     StaticFestivalRule("Independence Day", 8, 15, "🇮🇳"),
     StaticFestivalRule("Gandhi Jayanti", 10, 2, "🕊️"),
+    // Engineer's Day — Sir M. Visvesvaraya's birth anniversary, a fixed Gregorian date.
+    StaticFestivalRule("Vishveshvaraya Jayanti", 9, 15, "⚙️"),
     StaticFestivalRule("Children's Day", 11, 14, "🧒"),
     StaticFestivalRule("Christmas", 12, 25, "🎄")
 )

@@ -475,15 +475,27 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
         festivals.addAll(kshayaFallbackFestivals(startDate, endDate, seen))
         festivals.addAll(holiFestivals(startDate, endDate, seen))
 
-        // Makar Sankranti, for every year the window touches.
+        // Festivals that no tithi rule can express: two solar ingresses under different
+        // conventions, and one Gregorian computus.
         val firstYear = Calendar.getInstance().apply { time = startDate }.get(Calendar.YEAR)
         val lastYear = Calendar.getInstance().apply { time = endDate }.get(Calendar.YEAR)
         for (year in firstYear..lastYear) {
-            val date = makarSankranti(year)
-            if (date >= getStartOfDay(startDate) && date <= getStartOfDay(endDate) &&
-                seen.add("Makar Sankranti-$year")
-            ) {
-                festivals.add(HinduFestival("Makar Sankranti", date, "🌾", false))
+            val mesha = solarIngressJD(year, Calendar.APRIL, 8, 0.0)
+            val computed = listOf(
+                Triple("Makar Sankranti", sankrantiDeferringPastSunset(
+                    solarIngressJD(year, Calendar.JANUARY, 10, 270.0)), "🌾"),
+                Triple("Vishwakarma Puja", sankrantiDeferringPastSunset(
+                    solarIngressJD(year, Calendar.SEPTEMBER, 12, 150.0)), "🛠️"),
+                Triple("Baisakhi", sankrantiByHinduDay(mesha), "🌾"),
+                Triple("Solar New Year", sankrantiByHinduDay(mesha), "☀️"),
+                Triple("Good Friday", goodFriday(year), "✝️")
+            )
+            for ((name, date, emoji) in computed) {
+                if (date >= getStartOfDay(startDate) && date <= getStartOfDay(endDate) &&
+                    seen.add("$name-$year")
+                ) {
+                    festivals.add(HinduFestival(name, date, emoji, false))
+                }
             }
         }
         festivals.sortedBy { it.date }
@@ -718,32 +730,92 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
      * Verified against the ephemeris for 2024-2031, which reproduces every published date:
      * 2024 15 Jan, 2025 14, 2026 14, 2027 15, 2028 15, 2029 14, 2030 14, 2031 15.
      */
-    private fun makarSankranti(year: Int): Date {
-        // Bisect the Sun's sidereal longitude onto 270 degrees. The ingress is always in this
-        // window, and the longitude rises monotonically across it.
-        var lo = dateToJD(Calendar.getInstance().apply {
-            clear(); set(year, Calendar.JANUARY, 10)
-        }.time)
-        var hi = dateToJD(Calendar.getInstance().apply {
-            clear(); set(year, Calendar.JANUARY, 20)
-        }.time)
+    /**
+     * The instant the Sun reaches [targetLongitude] sidereally, bisected inside a ten-day
+     * window opening on [month]/[day]. The longitude rises monotonically across it.
+     */
+    private fun solarIngressJD(year: Int, month: Int, day: Int, targetLongitude: Double): Double {
+        var lo = dateToJD(Calendar.getInstance().apply { clear(); set(year, month, day) }.time)
+        var hi = dateToJD(Calendar.getInstance().apply { clear(); set(year, month, day + 10) }.time)
         while (hi - lo > 1.0 / 86400.0) {
             val mid = (lo + hi) / 2.0
             // [id, longitude, rashi, degree] per planet, the Sun first.
-            if (wrapper.calculatePlanetPositionsForJulianDay(mid)[1] < 270.0) lo = mid else hi = mid
+            var delta = wrapper.calculatePlanetPositionsForJulianDay(mid)[1] - targetLongitude
+            if (delta < -180.0) delta += 360.0
+            if (delta > 180.0) delta -= 360.0
+            if (delta < 0.0) lo = mid else hi = mid
         }
-        val ingressJD = (lo + hi) / 2.0
+        return (lo + hi) / 2.0
+    }
 
+    /**
+     * Makar Sankranti and Vishwakarma Puja: the ingress day, or the next when the Sankranti
+     * itself falls after sunset, its punya kaal needing daylight.
+     *
+     * Reproduces Makar Sankranti 2024 15 Jan, 2025 14, 2026 14, 2027 15, 2028 15, 2029 14,
+     * 2030 14, 2031 15, and Vishwakarma Puja on 17 September through 2023-2027.
+     */
+    private fun sankrantiDeferringPastSunset(ingressJD: Double): Date {
         val ingressDayStart = getStartOfDay(jdToDate(ingressJD))
         val sunsetJD = wrapper.calculateSunriseSunset(
             dateToJD(ingressDayStart), REFERENCE_LATITUDE, REFERENCE_LONGITUDE
         )["sunsetJD"]
-
         return if (sunsetJD != null && ingressJD > sunsetJD) {
             Calendar.getInstance().apply { time = ingressDayStart; add(Calendar.DAY_OF_YEAR, 1) }.time
         } else {
             ingressDayStart
         }
+    }
+
+    /**
+     * Baisakhi and the solar new year: the *Hindu* day holding the ingress, which runs sunrise
+     * to sunrise rather than midnight to midnight.
+     *
+     * Deliberately not the rule above. Mesha Sankranti fell at 03:21 on 14 Apr 2025 and
+     * Baisakhi was kept on the 13th, because 03:21 still belongs to the day that began at the
+     * 13th's sunrise. Reproduces 2023 14 Apr, 2024 13 Apr, 2025 13 Apr, where deferring past
+     * sunset instead would miss both 2024 and 2025.
+     */
+    private fun sankrantiByHinduDay(ingressJD: Double): Date {
+        val clockDayStart = getStartOfDay(jdToDate(ingressJD))
+        val sunriseJD = wrapper.calculateSunriseSunset(
+            dateToJD(clockDayStart), REFERENCE_LATITUDE, REFERENCE_LONGITUDE
+        )["sunriseJD"]
+        return if (sunriseJD != null && ingressJD < sunriseJD) {
+            Calendar.getInstance().apply { time = clockDayStart; add(Calendar.DAY_OF_YEAR, -1) }.time
+        } else {
+            clockDayStart
+        }
+    }
+
+    /**
+     * Good Friday — the Friday before Easter, by the Gregorian computus.
+     *
+     * Neither solar nor lunar in this calendar's sense: Easter is the first Sunday after the
+     * ecclesiastical full moon on or after 21 March, computed from tables rather than from an
+     * ephemeris, so it cannot come from a tithi rule. Gives 2023 7 Apr, 2024 29 Mar,
+     * 2025 18 Apr, 2026 3 Apr, 2027 26 Mar.
+     */
+    private fun goodFriday(year: Int): Date {
+        val a = year % 19
+        val b = year / 100
+        val c = year % 100
+        val d = b / 4
+        val e = b % 4
+        val f = (b + 8) / 25
+        val g = (b - f + 1) / 3
+        val h = (19 * a + b - d - g + 15) % 30
+        val i = c / 4
+        val k = c % 4
+        val l = (32 + 2 * e + 2 * i - h - k) % 7
+        val m = (a + 11 * h + 22 * l) / 451
+        val month = (h + l - 7 * m + 114) / 31        // 3 = March, 4 = April
+        val day = ((h + l - 7 * m + 114) % 31) + 1
+        return Calendar.getInstance().apply {
+            clear()
+            set(year, month - 1, day)
+            add(Calendar.DAY_OF_YEAR, -2)             // Easter Sunday -> Good Friday
+        }.time
     }
 
     private data class DayAnchor(val tithi: Int, val month: Int, val isAdhik: Boolean)
