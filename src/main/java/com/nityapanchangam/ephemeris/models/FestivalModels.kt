@@ -126,7 +126,10 @@ val allFestivalRules: List<FestivalRule> = listOf(
     // 16:43 — it fills the 18th's window and is long gone before the 19th's, while the
     // sunrise reading pointed at the 19th.
     FestivalRule("Karwa Chauth", 8, 4, "🌝", ObservationTime.PRADOSH_KAAL),
-    FestivalRule("Ahoi Ashtami", 8, 8, "⭐"),
+    // Pradosh: the fast breaks on sighting the stars, so the evening decides the day, the
+    // same shape as Karwa Chauth four days earlier. Sunrise gave 14 Oct 2025 against the
+    // observed 13th.
+    FestivalRule("Ahoi Ashtami", 8, 8, "⭐", ObservationTime.PRADOSH_KAAL),
     // Pradosh: the Dhanteras puja is at dusk, like Diwali two days later. Sunrise put it a
     // day late in 2023, 2024, 2025 and 2026 alike.
     FestivalRule("Dhanteras", 8, 13, "dhanteras", ObservationTime.PRADOSH_KAAL, hasIcon = true),
