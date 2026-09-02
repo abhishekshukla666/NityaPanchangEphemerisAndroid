@@ -9,6 +9,7 @@ import kotlinx.coroutines.withContext
 import java.util.*
 import kotlin.math.abs
 import kotlin.math.max
+import kotlin.math.roundToInt
 import com.nityapanchangam.ephemeris.PanchaangHelper.localized
 import com.nityapanchangam.ephemeris.PanchaangHelper.localizedFormat
 
@@ -563,15 +564,34 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
     private fun trayodashiMinutesInPradosh(sunsetJD: Double, nextSunriseJD: Double): Int {
         val nightLen = max(nextSunriseJD - sunsetJD, 1.0 / 1440.0)
         val windowEnd = sunsetJD + nightLen / 5.0
-        val step = 1.0 / 1440.0
-        var minutes = 0
-        var t = sunsetJD
-        while (t < windowEnd) {
-            val tithi = wrapper.calculateTithiNumberForJulianDay(t)
-            if (tithi == 13 || tithi == 28) minutes++
-            t += step
+        val windowMinutes = ((windowEnd - sunsetJD) * 1440.0).roundToInt()
+        if (windowMinutes <= 0) return 0
+
+        fun isTrayodashi(tithi: Int) = tithi == 13 || tithi == 28
+
+        val atStart = wrapper.calculateTithiNumberForJulianDay(sunsetJD)
+        val atEnd = wrapper.calculateTithiNumberForJulianDay(windowEnd)
+
+        // A tithi runs 19-26 hours and this window is a fifth of one night, so at most one
+        // tithi boundary can fall inside it. The two end readings therefore classify the
+        // whole window: agreeing ends mean that one tithi fills it, and neither end being
+        // Trayodashi means none of it is. Checking the ends first is what keeps this cheap —
+        // it settles the ~26 days a month with no Trayodashi near dusk in two ephemeris
+        // calls rather than one per minute, on a scan the calendar reruns every month change.
+        if (atStart == atEnd) return if (isTrayodashi(atStart)) windowMinutes else 0
+        if (!isTrayodashi(atStart) && !isTrayodashi(atEnd)) return 0
+
+        // Exactly one boundary inside: bisect to it in ~8 calls instead of sampling all ~144
+        // minutes. Also more precise than the sampling it replaces, not merely faster.
+        var lo = sunsetJD
+        var hi = windowEnd
+        while (hi - lo > 1.0 / 1440.0) {
+            val mid = (lo + hi) / 2.0
+            if (wrapper.calculateTithiNumberForJulianDay(mid) == atStart) lo = mid else hi = mid
         }
-        return minutes
+        val boundary = (lo + hi) / 2.0
+        val held = if (isTrayodashi(atStart)) boundary - sunsetJD else windowEnd - boundary
+        return max(0.0, held * 1440.0).roundToInt()
     }
 
     /** [trayodashiMinutesInPradosh] for the day starting at [jdDayStart]. */
