@@ -46,7 +46,14 @@ data class PlanetPosition(
     val symbol: String,
     val longitude: Double,
     val rashiNumber: Int,
-    val degrees: Double
+    val degrees: Double,
+    /**
+     * Vakri — apparent backward motion against the zodiac.
+     *
+     * Defaulted so existing callers keep compiling; the ephemeris fills it from the body's
+     * computed daily motion. The Sun and Moon are never retrograde; Rahu and Ketu always are.
+     */
+    val isRetrograde: Boolean = false
 )
 
 /** Computed chart used for marriage matching (Guna Milan) and Kundli charts. */

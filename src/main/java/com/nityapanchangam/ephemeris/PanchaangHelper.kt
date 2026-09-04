@@ -111,14 +111,18 @@ object PanchaangHelper {
 
     fun buildPlanetPositions(context: Context, raw: DoubleArray): List<PlanetPosition> {
         val result = mutableListOf<PlanetPosition>()
-        for (i in 0 until raw.size step 4) {
+        // Five doubles per planet, matching what native-lib.cpp pushes: index, longitude,
+        // rashi, degree, and Vakri as 1.0 or 0.0. The stride and the native layout have to
+        // move together.
+        for (i in 0 until raw.size step 5) {
             val idx = raw[i].toInt()
             val lon = raw[i + 1]
             val rashi = raw[i + 2].toInt()
             val deg = raw[i + 3]
+            val isRetrograde = raw[i + 4] != 0.0
             if (idx < PLANET_SYMBOLS.size) {
                 result.add(
-                    PlanetPosition(idx, getPlanetName(context, idx), PLANET_SYMBOLS[idx], lon, rashi, deg)
+                    PlanetPosition(idx, getPlanetName(context, idx), PLANET_SYMBOLS[idx], lon, rashi, deg, isRetrograde)
                 )
             }
         }
