@@ -180,7 +180,16 @@ data class MonthDayTithis(
      * during* dusk. A Trayodashi usually touches two consecutive windows and belongs to
      * whichever holds more of it.
      */
-    val isPradoshVrat: Boolean
+    val isPradoshVrat: Boolean,
+    /**
+     * Whether Sankashti Chaturthi is kept on this day.
+     *
+     * Like [isPradoshVrat], and for the same kind of reason, this cannot be read off a sunrise
+     * tithi: the vrat is dated by the tithi running at moonrise, since the fast is broken on
+     * sighting the moon, and that is regularly a different day from the one Chaturthi reaches
+     * at sunrise.
+     */
+    val isSankashtiChaturthi: Boolean = false
 )
 
 data class DailyPanchangSummary(
@@ -197,5 +206,14 @@ data class DailyPanchangSummary(
      * during* dusk. A Trayodashi usually touches two consecutive windows and belongs to
      * whichever holds more of it.
      */
-    val isPradoshVrat: Boolean = false
+    val isPradoshVrat: Boolean = false,
+    /**
+     * Whether Sankashti Chaturthi is kept on this day.
+     *
+     * Like [isPradoshVrat], and for the same kind of reason, this cannot be read off a sunrise
+     * tithi: the vrat is dated by the tithi running at moonrise, since the fast is broken on
+     * sighting the moon, and that is regularly a different day from the one Chaturthi reaches
+     * at sunrise.
+     */
+    val isSankashtiChaturthi: Boolean = false
 )

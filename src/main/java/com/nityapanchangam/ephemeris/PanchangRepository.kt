@@ -302,10 +302,17 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
             val gap = (((nextTithi - tithi - 1) % 30) + 30) % 30
             val skipped = if (gap in 1..2) (1..gap).map { ((tithi - 1 + it) % 30) + 1 } else emptyList()
 
+            // Only the days a Krishna Chaturthi could touch pay for a moonrise.
+            val dayStartJD = dateToJD((calendar.clone() as Calendar)
+                .apply { add(Calendar.DAY_OF_MONTH, day - 1) }.time)
+            val isSankashti = tithi in 3..5 &&
+                isSankashtiDay(dayStartJD, tithi, latitude, longitude)
+
             results[day] = MonthDayTithis(
                 sunriseTithi = tithi,
                 lostTithi = skipped.firstOrNull { it == 15 || it == 30 } ?: skipped.firstOrNull() ?: 0,
-                isPradoshVrat = isPradoshDay(overlap[day + 1], overlap[day], overlap[day + 2])
+                isPradoshVrat = isPradoshDay(overlap[day + 1], overlap[day], overlap[day + 2]),
+                isSankashtiChaturthi = isSankashti
             )
         }
         results
@@ -346,14 +353,20 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
                 next = pradoshOverlapOn(jdDayStart + 1.0, latitude, longitude)
             )
 
+            val sunriseTithi = wrapper.calculateTithiNumberForJulianDay(refJD)
+            // Only the days a Krishna Chaturthi could touch pay for a moonrise.
+            val isSankashti = sunriseTithi in 3..5 &&
+                isSankashtiDay(jdDayStart, sunriseTithi, latitude, longitude)
+
             results.add(
                 DailyPanchangSummary(
                     date = dayStart,
-                    tithiNumber = wrapper.calculateTithiNumberForJulianDay(refJD),
+                    tithiNumber = sunriseTithi,
                     nakshatraNumber = wrapper.calculateNakshatraForJulianDay(refJD),
                     lunarMonth = wrapper.calculatePurnimantaMonthForJulianDay(refJD),
                     isAdhikMaas = wrapper.calculateIsPurnimantaAdhikMaasForJulianDay(refJD),
-                    isPradoshVrat = isPradoshVratDay
+                    isPradoshVrat = isPradoshVratDay,
+                    isSankashtiChaturthi = isSankashti
                 )
             )
             cursor.add(Calendar.DAY_OF_YEAR, 1)
@@ -890,6 +903,46 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
         wrapper.calculateSunTimes(jd, latitude, longitude)[0].takeIf { it > 2_400_000 }
 
     /** Sunset for this day, or null where the sun does not set. */
+    /**
+     * Whether Chaturthi is the tithi running at this day's moonrise.
+     *
+     * Moonrise is the expensive half of a rise/set search — about 60% of it, which is why
+     * every other caller here uses the sun-only [SwissEphWrapper.calculateSunTimes] — so this
+     * is asked only of the two or three days a month that can possibly qualify.
+     */
+    private fun chaturthiAtMoonrise(jdDayStart: Double, latitude: Double, longitude: Double): Boolean {
+        val times = wrapper.calculateSunriseSunset(jdDayStart, latitude, longitude)
+        val moonriseJD = times["moonriseJD"] ?: 0.0
+        if (moonriseJD <= 2_400_000) return false
+        return wrapper.calculateTithiNumberForJulianDay(moonriseJD) == 4
+    }
+
+    /**
+     * Whether Sankashti Chaturthi is kept on this day.
+     *
+     * Dated by the tithi at moonrise, not at sunrise: the fast is broken on sighting the moon,
+     * so the day that matters is the one whose moonrise falls inside Chaturthi. The two
+     * readings are not interchangeable — measured across 2026 at Ujjain they disagree in most
+     * months, and a sunrise reading loses January entirely, where Chaturthi began after
+     * sunrise on the 6th and ended before sunrise on the 7th and so reached no sunrise at all.
+     *
+     * A long Chaturthi can catch two consecutive moonrises. The tie goes to the day that also
+     * holds it at sunrise, so the fast is kept over a day that is Chaturthi throughout rather
+     * than one it only reaches by evening. That tie-break is reasoned rather than sourced —
+     * unlike Ekadashi's Dashami-viddha rule, which the tradition states outright — so it is
+     * worth checking against a published panchang.
+     */
+    private fun isSankashtiDay(
+        jdDayStart: Double,
+        sunriseTithi: Int,
+        latitude: Double,
+        longitude: Double
+    ): Boolean {
+        if (!chaturthiAtMoonrise(jdDayStart, latitude, longitude)) return false
+        if (sunriseTithi == 4) return true
+        return !chaturthiAtMoonrise(jdDayStart + 1.0, latitude, longitude)
+    }
+
     private fun sunsetJDOf(jd: Double, latitude: Double, longitude: Double): Double? =
         wrapper.calculateSunTimes(jd, latitude, longitude)[1].takeIf { it > 2_400_000 }
 
