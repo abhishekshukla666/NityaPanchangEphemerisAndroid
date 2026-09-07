@@ -240,8 +240,8 @@ val allFestivalRules: List<FestivalRule> = listOf(
 // National holidays and universally observed fixed-date festivals for India.
 val allStaticFestivalRules: List<StaticFestivalRule> = listOf(
     StaticFestivalRule("New Year's Day", 1, 1, "🎆"),
-    StaticFestivalRule("Lohri", 1, 13, "🔥"),
-    // Makar Sankranti is NOT here: it is solar, not a fixed Gregorian date. See
+    // Neither Lohri nor Makar Sankranti is here: both are solar, not fixed Gregorian dates.
+    // Lohri is the eve of Maghi, so it follows the Sankranti wherever precession puts it. See
     // PanchangRepository.makarSankranti.
     StaticFestivalRule("Republic Day", 1, 26, "🇮🇳"),
     // Observed on the Gregorian date by the Maharashtra government, which is how it is

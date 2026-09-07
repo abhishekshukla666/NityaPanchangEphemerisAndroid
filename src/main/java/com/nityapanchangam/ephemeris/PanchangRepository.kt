@@ -504,9 +504,22 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
         val lastYear = Calendar.getInstance().apply { time = endDate }.get(Calendar.YEAR)
         for (year in firstYear..lastYear) {
             val mesha = solarIngressJD(year, Calendar.APRIL, 8, 0.0)
+            val makarSankranti = sankrantiDeferringPastSunset(
+                solarIngressJD(year, Calendar.JANUARY, 10, 270.0))
             val computed = listOf(
-                Triple("Makar Sankranti", sankrantiDeferringPastSunset(
-                    solarIngressJD(year, Calendar.JANUARY, 10, 270.0)), "🌾"),
+                Triple("Makar Sankranti", makarSankranti, "🌾"),
+                // Lohri is the last night of Poh — the eve of Maghi — so it follows Makar
+                // Sankranti rather than sitting on a fixed 13 January. It was modelled as a
+                // static date, which is right in most years and wrong in the two-in-five where
+                // the Sankranti lands on the 15th: 2023 and 2024 were both kept on 14 January,
+                // and the next are 2027, 2028, 2031, 2032, 2035. Derived from the observed
+                // Sankranti, deferral included, which is what discriminates 2023: the ingress
+                // was on the 14th at 20:45, after sunset, so Maghi moved to the 15th and Lohri
+                // with it.
+                Triple("Lohri", Calendar.getInstance().apply {
+                    time = makarSankranti
+                    add(Calendar.DAY_OF_YEAR, -1)
+                }.time, "🔥"),
                 Triple("Vishwakarma Puja", sankrantiDeferringPastSunset(
                     solarIngressJD(year, Calendar.SEPTEMBER, 12, 150.0)), "🛠️"),
                 Triple("Baisakhi", sankrantiByHinduDay(mesha), "🌾"),
