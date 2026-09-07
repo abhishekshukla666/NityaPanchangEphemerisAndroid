@@ -88,8 +88,8 @@ val allFestivalRules: List<FestivalRule> = listOf(
     FestivalRule("Ugadi", 1, 16, "🪷"),
     FestivalRule("Gudi Padwa", 1, 16, "🌾"),
     FestivalRule("Navratri (Chaitra)", 1, 16, "🎊"),
-    FestivalRule("Ram Navami", 1, 24, "🏹"),
-    FestivalRule("Hanuman Jayanti", 1, 30, "gada", hasIcon = true),
+    FestivalRule("Ram Navami", 1, 24, "ram", hasIcon = true),
+    FestivalRule("Hanuman Jayanti", 1, 30, "hanuman", hasIcon = true),
 
     // Vaishakha (2)
     // Madhyahna, not sunrise. Tritiya at midday is what dates these: in 2026 it reaches
@@ -107,7 +107,7 @@ val allFestivalRules: List<FestivalRule> = listOf(
 
     // Ashadha (4)
     FestivalRule("Jagannath Rath Yatra", 4, 17, "chariot", hasIcon = true),
-    FestivalRule("Guru Purnima", 4, 30, "sacred", hasIcon = true),
+    FestivalRule("Guru Purnima", 4, 30, "guru", hasIcon = true),
 
     // Shravana (5)
     FestivalRule("Sawan Shivratri", 5, 14, "lordshiv", ObservationTime.MIDNIGHT, hasIcon = true),
@@ -146,7 +146,7 @@ val allFestivalRules: List<FestivalRule> = listOf(
     // is the one whose dusk holds Chaturthi. In 2027 Chaturthi runs 18 Oct 17:53 to 19 Oct
     // 16:43 — it fills the 18th's window and is long gone before the 19th's, while the
     // sunrise reading pointed at the 19th.
-    FestivalRule("Karwa Chauth", 8, 4, "🌝", ObservationTime.PRADOSH_KAAL),
+    FestivalRule("Karwa Chauth", 8, 4, "karwa-chauth", ObservationTime.PRADOSH_KAAL, hasIcon = true),
     // Pradosh: the fast breaks on sighting the stars, so the evening decides the day, the
     // same shape as Karwa Chauth four days earlier. Sunrise gave 14 Oct 2025 against the
     // observed 13th.
@@ -154,9 +154,12 @@ val allFestivalRules: List<FestivalRule> = listOf(
     // Pradosh: the Dhanteras puja is at dusk, like Diwali two days later. Sunrise put it a
     // day late in 2023, 2024, 2025 and 2026 alike.
     FestivalRule("Dhanteras", 8, 13, "dhanteras", ObservationTime.PRADOSH_KAAL, hasIcon = true),
-    FestivalRule("Narak Chaturdashi", 8, 14, "🪔"),
+    // Diwali is listed before Narak Chaturdashi although its tithi is a day later. The two
+    // regularly share a Gregorian date, the scan keeps rule order within a day, and every
+    // surface that shows one festival shows the first — which should be Diwali.
     FestivalRule("Diwali", 8, 15, "diwali", ObservationTime.PRADOSH_KAAL, hasIcon = true),
-    FestivalRule("Govardhan Puja", 8, 16, "🐄"),
+    FestivalRule("Narak Chaturdashi", 8, 14, "🪔"),
+    FestivalRule("Govardhan Puja", 8, 16, "goverdhan", hasIcon = true),
     FestivalRule("Bhai Dooj", 8, 17, "bhaidooj", hasIcon = true),
     FestivalRule("Chhath Puja", 8, 21, "☀️"),
     FestivalRule("Gopashtami", 8, 23, "🐄"),
