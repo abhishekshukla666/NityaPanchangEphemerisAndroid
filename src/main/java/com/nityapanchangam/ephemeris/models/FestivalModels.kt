@@ -121,7 +121,12 @@ val allFestivalRules: List<FestivalRule> = listOf(
     FestivalRule("Hal Chhath", 6, 6, "🐂"),
     FestivalRule("Krishna Janmashtami", 6, 8, "krishna", hasIcon = true),
     FestivalRule("Hartalika Teej", 6, 18, "🌺"),
-    FestivalRule("Ganesh Chaturthi", 6, 19, "ganesh", hasIcon = true),
+    // Madhyahna, not sunrise: Ganesha was born in the Hindu midday, so the day is the one
+    // whose Madhyahna holds Chaturthi — the same rule Akshaya Tritiya above is dated by. The
+    // two readings pick the same day in most years and differ in 2026, 2032 and 2033 across
+    // 2020-2035; 2026 is the live one, where Chaturthi covers the 14th's Madhyahna and has
+    // ended before the 15th's, while the sunrise reading pointed at the 15th.
+    FestivalRule("Ganesh Chaturthi", 6, 19, "ganesh", ObservationTime.MADHYAHNA, hasIcon = true),
     FestivalRule("Rishi Panchami", 6, 20, "🌸"),
     FestivalRule("Radha Ashtami", 6, 23, "🪈"),
     FestivalRule("Anant Chaturdashi", 6, 29, "conch_shell", hasIcon = true),
