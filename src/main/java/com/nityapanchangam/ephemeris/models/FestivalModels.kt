@@ -133,7 +133,11 @@ val allFestivalRules: List<FestivalRule> = listOf(
 
     // Ashwina (7)
     FestivalRule("Jivitputrika Vrat", 7, 8, "🙏"),
-    FestivalRule("Mahalaya Amavasya", 7, 15, "🌚"),
+    // Pitra Amavasya, which is what it is asked for by — the Amavasya that closes Pitru
+    // Paksha and carries the last tarpan. Mahalaya Amavasya and Sarva Pitru Amavasya name the
+    // same day; the rule's name is the string-resource key, so this is the one that reaches a
+    // reader.
+    FestivalRule("Pitra Amavasya", 7, 15, "🌚"),
     FestivalRule("Navratri", 7, 16, "navratri", hasIcon = true),
     FestivalRule("Durga Ashtami", 7, 23, "lion", hasIcon = true),
     // Udaya Tithi, not Pradosh Kaal. iOS moved this to Pradosh to stop Maha Navami and
