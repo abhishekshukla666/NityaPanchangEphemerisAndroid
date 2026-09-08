@@ -144,7 +144,12 @@ val allFestivalRules: List<FestivalRule> = listOf(
     // them in 2026; it moved Navami onto 19 Oct, which is Durga Ashtami that year.
     FestivalRule("Maha Navami", 7, 24, "🪔", ObservationTime.APARAHNA),
     FestivalRule("Dussehra", 7, 25, "🏹", ObservationTime.APARAHNA),
-    FestivalRule("Sharad Purnima", 7, 30, "🌝"),
+    // Nishita, not sunrise: the whole observance is the Kojagara moon-viewing at night, so
+    // the day is the one whose night holds Purnima. The two readings differ in eight of the
+    // ten years 2023-2032 — a Purnima that begins in the afternoon and ends the next morning
+    // is dated by the night it covers, not by the morning it happens to reach. 2024 was kept
+    // on 16 Oct against the sunrise reading's 17th, 2025 on 6 Oct against the 7th.
+    FestivalRule("Sharad Purnima", 7, 30, "🌝", ObservationTime.MIDNIGHT),
 
     // Kartika (8)
     // Pradosh, not sunrise: the whole observance is the evening moon sighting, so the day

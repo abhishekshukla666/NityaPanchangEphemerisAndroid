@@ -419,7 +419,34 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
                         if (midnight == null) {
                             midnight = anchorAt(dayStartJD + (23.0 * 60 + 59) / 1440.0)
                         }
-                        midnight
+                        val night = midnight
+                        if (night.tithi == rule.tithiNumber) {
+                            night
+                        } else {
+                            // A tithi is sampled once a night and averages under twenty-four
+                            // hours, so a short one can begin after one midnight and end
+                            // before the next — reaching no night at all. Ashwina Purnima
+                            // does exactly that in 2041, running from before sunrise on 9 Oct
+                            // to before that evening, which would drop Sharad Purnima from
+                            // the year entirely. The same shape as a kshaya tithi under a
+                            // sunrise rule, which kshayaFallbackFestivals cannot rescue here
+                            // because it is scoped to sunrise rules.
+                            //
+                            // The fall-back day is the one holding the tithi at sunrise, which
+                            // is also what the tradition prescribes when no night qualifies:
+                            // the first of the two candidate days. Reached only once both
+                            // neighbouring nights have been ruled out, so it can never claim a
+                            // day the night reading has already given to another — and a tithi
+                            // running at this sunrise but not at this midnight has ended
+                            // during the day, so it cannot reach the following midnight
+                            // either. It therefore only ever adds a festival that would
+                            // otherwise be missing.
+                            if (tithiSunrise != rule.tithiNumber) continue
+                            val previousNight =
+                                anchorAt(dayStartJD - 1.0 + (23.0 * 60 + 59) / 1440.0)
+                            if (previousNight.tithi == rule.tithiNumber) continue
+                            DayAnchor(tithiSunrise, monthSunrise, isAdhikSunrise)
+                        }
                     }
 
                     ObservationTime.PRADOSH_KAAL -> {
