@@ -931,6 +931,20 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
      * than one it only reaches by evening. That tie-break is reasoned rather than sourced —
      * unlike Ekadashi's Dashami-viddha rule, which the tradition states outright — so it is
      * worth checking against a published panchang.
+     *
+     * A short Chaturthi can catch *no* moonrise, which is the mirror of that and the reason
+     * for the fallback below. Moonrise runs about an hour later each night while a tithi
+     * averages under twenty-four hours, so a Chaturthi that begins just after one evening's
+     * moonrise can end just before the next — reaching neither. 24 Feb 2027 is such a day at
+     * Ujjain: the 23rd's moonrise at 20:59 still holds Tritiya, the 24th's at 21:58 already
+     * holds Panchami, and Chaturthi ran between them. A moonrise test alone then selects no
+     * day at all and the vrat disappears from that month, exactly the way a sunrise test loses
+     * a kshaya tithi. It happens six times over 2026-2031.
+     *
+     * The day it falls back to is the one holding Chaturthi at sunrise — the day a devotee
+     * actually fasts, breaking it at that evening's moonrise even though the tithi has just
+     * ended. Reached only when both neighbouring moonrises have been ruled out, so it can
+     * never claim a day the moonrise rule has already given to another.
      */
     private fun isSankashtiDay(
         jdDayStart: Double,
@@ -938,7 +952,11 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
         latitude: Double,
         longitude: Double
     ): Boolean {
-        if (!chaturthiAtMoonrise(jdDayStart, latitude, longitude)) return false
+        if (!chaturthiAtMoonrise(jdDayStart, latitude, longitude)) {
+            // Chaturthi holds this sunrise but reached no moonrise on either side of it.
+            return sunriseTithi == 4 &&
+                !chaturthiAtMoonrise(jdDayStart - 1.0, latitude, longitude)
+        }
         if (sunriseTithi == 4) return true
         return !chaturthiAtMoonrise(jdDayStart + 1.0, latitude, longitude)
     }
