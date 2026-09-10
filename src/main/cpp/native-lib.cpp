@@ -316,9 +316,25 @@ JNIEXPORT jobject JNICALL Java_com_nityapanchangam_ephemeris_SwissEphWrapper_cal
     result["vijayaStart"] = sunriseJD + 9.0 * muhuratLength15;
     result["vijayaEnd"] = result["vijayaStart"] + muhuratLength15;
 
+    // Seven of the day's eight parts carry a lord, assigned from the lord of the weekday
+    // itself and running in weekday order — Sun, Moon, Mars, Mercury, Jupiter, Venus,
+    // Saturn — with the eighth belonging to no one. Gulika is Saturn's part and Yamaganda is
+    // Jupiter's, which is what fixes both tables:
+    //
+    //   Sunday   parts 1-7 = Sun Moon Mars Mer Jup Ven Sat  -> Gulika 7, Yamaganda 5
+    //   Monday             = Moon Mars Mer Jup Ven Sat Sun  -> Gulika 6, Yamaganda 4
+    //   ... and so on, each descending by one until it wraps.
+    //
+    // Gulika read {6,5,4,3,2,1,7}, the right sequence rotated by a day, so every weekday was
+    // an eighth of the day out and Saturday — when Gulika is the first part, right after
+    // sunrise — pointed at the seventh instead. Yamaganda read {5,4,3,2,7,6,1}, correct until
+    // Thursday and then scrambled across the wrap.
+    //
+    // Rahu Kaal is not part of that scheme (its Sunday is the unowned eighth part) and its
+    // table is the standard one, left as it was.
     int rahuSegments[7] = {8, 2, 7, 5, 6, 4, 3};
-    int yamaSegments[7] = {5, 4, 3, 2, 7, 6, 1};
-    int gulikSegments[7] = {6, 5, 4, 3, 2, 1, 7};
+    int yamaSegments[7] = {5, 4, 3, 2, 1, 7, 6};
+    int gulikSegments[7] = {7, 6, 5, 4, 3, 2, 1};
 
     result["rahuStart"] = sunriseJD + (rahuSegments[weekday - 1] - 1) * muhuratLength8;
     result["rahuEnd"] = result["rahuStart"] + muhuratLength8;
@@ -330,8 +346,18 @@ JNIEXPORT jobject JNICALL Java_com_nityapanchangam_ephemeris_SwissEphWrapper_cal
     result["brahmaStart"] = sunriseJD - (96.0 / 1440.0);
     result["brahmaEnd"] = sunriseJD - (48.0 / 1440.0);
 
-    int amritSegments[7] = {3, 0, 5, 1, 6, 2, 7};
-    result["amritStart"] = sunriseJD + amritSegments[weekday - 1] * muhuratLength8;
+    // The Amrit chaughadiya, derived rather than tabulated so it cannot drift from the
+    // chaughadiya list the app draws beside it — which is where the old table disagreed.
+    //
+    // A day's chaughadiyas run Udveg, Char, Labh, Amrit, Kaal, Shubh, Rog on a seven-cycle,
+    // starting at the type ruled by the weekday's lord; PanchangRepository holds that same
+    // starting offset as `dayIdx`. Amrit is the fourth name, so it falls in the segment that
+    // brings the cycle round to it. The table said {3,0,5,1,6,2,7}, an eighth of the day late
+    // on Tuesday, Thursday and Saturday, so the muhurat list and the chaughadiya list showed
+    // one period at two different times on three days in seven.
+    int chaughadiyaStart[7] = {0, 3, 6, 2, 5, 1, 4};
+    int amritSegment = (3 - chaughadiyaStart[weekday - 1] + 7) % 7;
+    result["amritStart"] = sunriseJD + amritSegment * muhuratLength8;
     result["amritEnd"] = result["amritStart"] + muhuratLength8;
 
     result["godhuliStart"] = sunsetJD - (24.0 / 1440.0);
