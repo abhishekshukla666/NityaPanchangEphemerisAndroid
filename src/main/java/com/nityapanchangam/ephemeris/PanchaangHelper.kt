@@ -87,12 +87,28 @@ object PanchaangHelper {
         return symbols.getOrElse(number - 1) { symbols.last() }
     }
 
-    /** Sun, Moon, Mars, Mercury, Jupiter, Venus, Saturn, Rahu, Ketu — index order shared by
-     *  the `planet_N` string resources, [PLANET_SYMBOLS], and the raw ephemeris output. */
-    private val PLANET_SYMBOLS = listOf("☉", "☾", "♂", "☿", "♃", "♀", "♄", "☊", "☋")
+    /** Sun, Moon, Mars, Mercury, Jupiter, Venus, Saturn, Rahu, Ketu, then Uranus, Neptune and
+     *  Pluto — index order shared by the `planet_N` string resources, [PLANET_SYMBOLS], and
+     *  the raw ephemeris output.
+     *
+     *  Ids 0–8 are the Navagraha and are what every classical calculation in this library
+     *  uses: a dasha, a lordship, a hora, a combustion orb. Ids 9–11 are the three no
+     *  classical text knows. They are computed and named here so a caller can *show* them, and
+     *  they are carried in their own array on [com.nityapanchangam.ephemeris.models.PanchangDay]
+     *  so nothing that reasons about the nine can pick them up by accident. */
+    private val PLANET_SYMBOLS =
+        listOf("☉", "☾", "♂", "☿", "♃", "♀", "♄", "☊", "☋", "♅", "♆", "♇")
 
-    private val PLANET_FALLBACK_NAMES =
-        listOf("Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "Rahu", "Ketu")
+    private val PLANET_FALLBACK_NAMES = listOf(
+        "Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "Rahu", "Ketu",
+        "Uranus", "Neptune", "Pluto"
+    )
+
+    /** The Navagraha — the ids a classical rule may look at. */
+    val NAVAGRAHA_IDS = 0..8
+
+    /** Uranus, Neptune and Pluto. */
+    val OUTER_PLANET_IDS = 9..11
 
     /**
      * Localized name for a planet index, resolved from the consuming app's `planet_N` string

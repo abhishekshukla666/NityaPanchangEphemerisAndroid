@@ -120,6 +120,11 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
         val rawPlanets = wrapper.calculatePlanetPositionsForJulianDay(refJD)
         val planetPositions = PanchaangHelper.buildPlanetPositions(context, rawPlanets)
 
+        // Uranus, Neptune and Pluto, kept apart from the nine. Three more ephemeris calls on a
+        // path that already makes dozens.
+        val rawOuter = wrapper.calculateOuterPlanetPositionsForJulianDay(refJD)
+        val outerPlanetPositions = PanchaangHelper.buildPlanetPositions(context, rawOuter)
+
         val sunRashiNum = planetPositions.find { it.id == 0 }?.rashiNumber ?: 1
         val isUttarayana = sunRashiNum <= 3 || sunRashiNum >= 10
         val vedaAyana = if (isUttarayana) context.localized("ayana_uttarayana", "Uttarayana") else context.localized("ayana_dakshinayana", "Dakshinayana")
@@ -233,7 +238,8 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
             nakshatras = nakshatraPeriods,
             yogas = yogaPeriods,
             karanas = karanaPeriods,
-            rashis = rashiPeriods
+            rashis = rashiPeriods,
+            outerPlanets = outerPlanetPositions
         )
     }
 
@@ -1098,7 +1104,8 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
     }
 
     /**
-     * When each of the nine grahas next changes sign, searching forward from [date].
+     * When each of the twelve bodies next changes sign, searching forward from [date] — the
+     * nine, and then Uranus, Neptune and Pluto.
      *
      * Omits a graha whose crossing is not found inside the search window rather than reporting
      * the window's own end as an answer.
@@ -1114,7 +1121,7 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
      */
     suspend fun fetchRashiChanges(date: Date): List<RashiChange> = ephemerisCall {
         val jd = dateToJD(date)
-        (0..8).mapNotNull { planet ->
+        (0..11).mapNotNull { planet ->
             val changeJD = wrapper.calculateRashiChangeJDForJulianDay(planet, jd)
             if (changeJD <= 0.0) return@mapNotNull null
             val justAfter = wrapper.calculatePlanetLongitudeForJulianDay(planet, changeJD + 1.0 / 1440.0)

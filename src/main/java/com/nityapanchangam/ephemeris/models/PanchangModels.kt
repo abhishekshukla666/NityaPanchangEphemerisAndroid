@@ -209,7 +209,19 @@ data class PanchangDay(
     val nakshatras: List<LimbPeriod> = emptyList(),
     val yogas: List<LimbPeriod> = emptyList(),
     val karanas: List<LimbPeriod> = emptyList(),
-    val rashis: List<LimbPeriod> = emptyList()
+    val rashis: List<LimbPeriod> = emptyList(),
+    /**
+     * Uranus, Neptune and Pluto, in their own list rather than among the nine.
+     *
+     * No classical rule has a place for them — Vimshottari divides its hundred and twenty
+     * years among nine lords, a hora belongs to one of the seven, these three rule no sign in
+     * Parashari, and no text gives them an orb of combustion. Keeping them apart means code
+     * that reasons about the Navagraha cannot pick them up by accident, and a screen that
+     * wants to show them has to say so.
+     *
+     * A birth chart does not get them at all: a kundli is read by rules that cannot take them.
+     */
+    val outerPlanets: List<PlanetPosition> = emptyList()
 )
 
 /**

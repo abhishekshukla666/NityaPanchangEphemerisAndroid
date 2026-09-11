@@ -88,6 +88,16 @@ class SwissEphWrapper(context: Context) {
     // [planetIndex, longitude, rashiNumber, degrees, ...] repeats for 9 planets
     external fun calculatePlanetPositionsForJulianDay(jd: Double): DoubleArray
 
+    /**
+     * Uranus, Neptune and Pluto, in the same layout [calculatePlanetPositionsForJulianDay]
+     * uses, with planet indices 9, 10 and 11.
+     *
+     * Separate from the Navagraha call on purpose: that array is read by everything which
+     * reasons about the nine — a dasha lord, a sign lordship, a hora, a combustion orb — and
+     * no classical rule has a place for these three. A caller that wants them asks for them.
+     */
+    external fun calculateOuterPlanetPositionsForJulianDay(jd: Double): DoubleArray
+
     external fun calculateAscendantAtJD(jd: Double, latitude: Double, longitude: Double): Double
 
     external fun nextSolarEclipseVisible(jd: Double, latitude: Double, longitude: Double, maxDaysAhead: Double): Map<String, Double>?

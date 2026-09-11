@@ -525,6 +525,42 @@ JNIEXPORT jdoubleArray JNICALL Java_com_nityapanchangam_ephemeris_SwissEphWrappe
     return result;
 }
 
+// Uranus, Neptune and Pluto -- their own call, not appended to the one above.
+//
+// That array is the Navagraha, and it is read by code that reasons about the nine: a dasha
+// lord, a sign lordship, a hora, a combustion orb. Three more bodies quietly appearing in it
+// would be found by all of that rather than only by the screens meant to show them.
+//
+// Same five-double stride as the Navagraha call, with planet indices 9, 10 and 11, so
+// PanchaangHelper.buildPlanetPositions reads either array unchanged.
+JNIEXPORT jdoubleArray JNICALL Java_com_nityapanchangam_ephemeris_SwissEphWrapper_calculateOuterPlanetPositionsForJulianDay(JNIEnv *env, jobject thiz, jdouble jd) {
+    swe_set_sid_mode(SE_SIDM_LAHIRI, 0, 0);
+    long flags = SEFLG_SWIEPH | SEFLG_SIDEREAL | SEFLG_SPEED;
+    char errorMessage[256];
+
+    std::vector<double> resultData;
+    int seIds[3] = { SE_URANUS, SE_NEPTUNE, SE_PLUTO };
+
+    for (int i = 0; i < 3; i++) {
+        double pos[6];
+        swe_calc_ut(jd, seIds[i], flags, pos, errorMessage);
+        double lon = pos[0];
+        while (lon < 0) lon += 360.0;
+        while (lon >= 360) lon -= 360.0;
+        resultData.push_back((double)(9 + i));
+        resultData.push_back(lon);
+        resultData.push_back((double)((int)(lon / 30.0) + 1));
+        resultData.push_back(std::fmod(lon, 30.0));
+        // All three are retrograde for roughly five months of every year, which is most of
+        // what there is to say about their motion.
+        resultData.push_back(pos[3] < 0 ? 1.0 : 0.0);
+    }
+
+    jdoubleArray result = env->NewDoubleArray(resultData.size());
+    env->SetDoubleArrayRegion(result, 0, resultData.size(), resultData.data());
+    return result;
+}
+
 JNIEXPORT jdouble JNICALL Java_com_nityapanchangam_ephemeris_SwissEphWrapper_calculateAscendantAtJD(JNIEnv *env, jobject thiz, jdouble jd, jdouble latitude, jdouble longitude) {
     swe_set_sid_mode(SE_SIDM_LAHIRI, 0, 0);
     double cusps[13] = {0};
@@ -576,7 +612,7 @@ JNIEXPORT jdouble JNICALL Java_com_nityapanchangam_ephemeris_SwissEphWrapper_cal
 //
 // Both directions count. A retrograde graha leaves through the boundary behind it, so the
 // stride is measured to whichever boundary is nearer.
-static const double MAX_SPEED_DEGREES_PER_DAY[9] = {
+static const double MAX_SPEED_DEGREES_PER_DAY[12] = {
     1.05,   // Sun
     15.40,  // Moon
     0.85,   // Mars
@@ -585,11 +621,27 @@ static const double MAX_SPEED_DEGREES_PER_DAY[9] = {
     1.30,   // Venus
     0.14,   // Saturn
     0.06,   // Rahu -- the mean node moves uniformly
-    0.06    // Ketu
+    0.06,   // Ketu
+    0.07,   // Uranus
+    0.05,   // Neptune
+    0.05    // Pluto
 };
 
+// How far forward to look for a sign change, in days.
+//
+// The nine never need more than three years: Saturn is the slowest of them, and a retrograde
+// loop across a boundary can hold it in one sign for about that long. The modern three are a
+// different order of slow -- Uranus spends seven years in a sign, Neptune fourteen, and Pluto
+// anywhere from twelve to thirty depending on where in its lopsided orbit it is. Thirty-three
+// years covers the worst of that and costs almost nothing to search: the stride below is
+// degrees to the boundary over top speed, so Pluto crosses the middle of a sign in strides of
+// nearly a year.
+static double rashiSearchWindowDays(int planetIndex) {
+    return planetIndex >= 9 ? 12000.0 : 1200.0;
+}
+
 JNIEXPORT jdouble JNICALL Java_com_nityapanchangam_ephemeris_SwissEphWrapper_calculatePlanetLongitudeForJulianDay(JNIEnv *env, jobject thiz, jint planetIndex, jdouble jd) {
-    if (planetIndex < 0 || planetIndex > 8) { return -1.0; }
+    if (planetIndex < 0 || planetIndex > 11) { return -1.0; }
     swe_set_sid_mode(SE_SIDM_LAHIRI, 0, 0);
     int32 flags = SEFLG_SWIEPH | SEFLG_SIDEREAL | SEFLG_SPEED;
     char errorMessage[256];
@@ -598,7 +650,11 @@ JNIEXPORT jdouble JNICALL Java_com_nityapanchangam_ephemeris_SwissEphWrapper_cal
     // Same order as calculatePlanetPositionsForJulianDay, which is not the Swiss Ephemeris'
     // own -- Mars precedes Mercury here.
     int seIds[7] = { SE_SUN, SE_MOON, SE_MARS, SE_MERCURY, SE_JUPITER, SE_VENUS, SE_SATURN };
-    int seId = planetIndex < 7 ? seIds[planetIndex] : SE_MEAN_NODE;
+    int outerIds[3] = { SE_URANUS, SE_NEPTUNE, SE_PLUTO };
+    int seId;
+    if (planetIndex < 7)      { seId = seIds[planetIndex]; }
+    else if (planetIndex < 9) { seId = SE_MEAN_NODE; }
+    else                      { seId = outerIds[planetIndex - 9]; }
 
     swe_calc_ut(jd, seId, flags, pos, errorMessage);
     double lon = pos[0];
@@ -610,7 +666,7 @@ JNIEXPORT jdouble JNICALL Java_com_nityapanchangam_ephemeris_SwissEphWrapper_cal
 }
 
 JNIEXPORT jdouble JNICALL Java_com_nityapanchangam_ephemeris_SwissEphWrapper_calculateRashiChangeJDForJulianDay(JNIEnv *env, jobject thiz, jint planetIndex, jdouble startJD) {
-    if (planetIndex < 0 || planetIndex > 8) { return 0.0; }
+    if (planetIndex < 0 || planetIndex > 11) { return 0.0; }
 
     auto longitudeAt = [&](double jd) {
         return Java_com_nityapanchangam_ephemeris_SwissEphWrapper_calculatePlanetLongitudeForJulianDay(env, thiz, planetIndex, jd);
@@ -622,8 +678,8 @@ JNIEXPORT jdouble JNICALL Java_com_nityapanchangam_ephemeris_SwissEphWrapper_cal
     double searchJD = startJD;
     // 1200 days for every graha because the worst case is not the average: Saturn crosses a
     // sign in about two and a half years, and a retrograde loop straddling the boundary can
-    // hold it there for three.
-    double limitJD = startJD + 1200.0;
+    // hold it there for three. The modern three need far longer -- see rashiSearchWindowDays.
+    double limitJD = startJD + rashiSearchWindowDays(planetIndex);
 
     while (searchJD < limitJD) {
         double lon = longitudeAt(searchJD);
