@@ -69,6 +69,21 @@ class SwissEphWrapper(context: Context) {
      *  about two and a quarter days, so a shorter window would miss the crossing outright. */
     external fun calculateMoonRashiEndTimeForJulianDay(startJD: Double): Double
 
+    /** One graha's sidereal longitude, by the same 0-8 ids [calculatePlanetPositionsForJulianDay]
+     *  uses. Ketu is computed as Rahu's opposite point rather than looked up. */
+    external fun calculatePlanetLongitudeForJulianDay(planetIndex: Int, jd: Double): Double
+
+    /**
+     * When a graha next leaves the sign it holds at [startJD], or 0.0 if no crossing is found
+     * inside the search window.
+     *
+     * Strides by the distance to the nearest sign boundary divided by the graha's own top
+     * speed, which is the largest jump that cannot step over a crossing — Saturn moves a
+     * hundred days at a time through the middle of a sign and closes to minutes as a boundary
+     * approaches.
+     */
+    external fun calculateRashiChangeJDForJulianDay(planetIndex: Int, startJD: Double): Double
+
     // Returning a simple double array for planet positions to keep JNI simple
     // [planetIndex, longitude, rashiNumber, degrees, ...] repeats for 9 planets
     external fun calculatePlanetPositionsForJulianDay(jd: Double): DoubleArray

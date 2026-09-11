@@ -112,6 +112,25 @@ data class LagnaPeriod(
  * PanchangDay is fetched once and held, while now keeps moving, so anything baked in as
  * current would go stale in the hand. Hora, Lagna and Chaughariya are already shaped this way.
  */
+/**
+ * When a graha next changes sign — Rashi Parivartan.
+ *
+ * Its own type, and its own fetch, rather than a field on [PlanetPosition]: searching for all
+ * nine costs about as much again as the whole panchang day it would ride along with, and every
+ * screen in the app pays for a panchang while only one card ever asks for this.
+ */
+data class RashiChange(
+    /** The graha, by the same ids [PlanetPosition] uses. */
+    val planetId: Int,
+    val date: Date,
+    /**
+     * The sign it moves into, 1-12 — and not always the next one up. A retrograde graha leaves
+     * through the boundary behind it, which is how Rahu and Ketu always travel and how Venus
+     * or Mercury sometimes do.
+     */
+    val toRashi: Int
+)
+
 data class LimbPeriod(
     val id: Int,
     /** The limb's name, already localized the same way the Udaya reading's is. */

@@ -1097,6 +1097,35 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
         return fallback
     }
 
+    /**
+     * When each of the nine grahas next changes sign, searching forward from [date].
+     *
+     * Omits a graha whose crossing is not found inside the search window rather than reporting
+     * the window's own end as an answer.
+     *
+     * Deliberately not part of [fetchPanchang]. It costs about as much again as a whole
+     * panchang day, and needs no location at all — a sign change is the same instant
+     * everywhere.
+     *
+     * The destination sign is read a minute past the crossing rather than computed as "one
+     * more than the current one": a retrograde graha leaves through the boundary behind it, so
+     * the sign it lands in is one *less* — and at the boundary between Meena and Mesha either
+     * direction wraps.
+     */
+    suspend fun fetchRashiChanges(date: Date): List<RashiChange> = ephemerisCall {
+        val jd = dateToJD(date)
+        (0..8).mapNotNull { planet ->
+            val changeJD = wrapper.calculateRashiChangeJDForJulianDay(planet, jd)
+            if (changeJD <= 0.0) return@mapNotNull null
+            val justAfter = wrapper.calculatePlanetLongitudeForJulianDay(planet, changeJD + 1.0 / 1440.0)
+            RashiChange(
+                planetId = planet,
+                date = jdToDate(changeJD),
+                toRashi = (justAfter / 30.0).toInt() + 1
+            )
+        }
+    }
+
     suspend fun fetchBirthChart(date: Date, latitude: Double, longitude: Double): BirthChart = ephemerisCall {
         val jd = dateToJD(date)
 
