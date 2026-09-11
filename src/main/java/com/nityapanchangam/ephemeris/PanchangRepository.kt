@@ -178,6 +178,27 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
         val horas = computeHoras(sunriseJD, sunsetJD, nextSunriseJD, weekday)
         val lagnas = computeLagnas(sunriseJD, sunsetJD, nextSunriseJD, latitude, longitude)
 
+        // The day's limbs as periods, so a caller can show what is running now beside the
+        // Udaya reading that names the day.
+        val nakshatraPeriods = limbPeriods(sunriseJD, nextSunriseJD,
+            valueAt = { wrapper.calculateNakshatraForJulianDay(it) },
+            endFrom = { wrapper.calculateNakshatraEndTimeForJulianDay(it) },
+            name = { PanchaangHelper.getNakshatraName(context, it) })
+        val yogaPeriods = limbPeriods(sunriseJD, nextSunriseJD,
+            valueAt = { wrapper.calculateYogaForJulianDay(it) },
+            endFrom = { wrapper.calculateYogaEndTimeForJulianDay(it) },
+            name = { PanchaangHelper.getYogaName(context, it) })
+        val karanaPeriods = limbPeriods(sunriseJD, nextSunriseJD,
+            valueAt = { wrapper.calculateKaranaForJulianDay(it) },
+            endFrom = { wrapper.calculateKaranaEndTimeForJulianDay(it) },
+            name = { PanchaangHelper.getKaranaName(context, it) })
+        // The Moon's sign. Named with its symbol so it matches moonRashi, which is what every
+        // caller already knows how to draw.
+        val rashiPeriods = limbPeriods(sunriseJD, nextSunriseJD,
+            valueAt = { wrapper.calculateMoonRashiForJulianDay(it) },
+            endFrom = { wrapper.calculateMoonRashiEndTimeForJulianDay(it) },
+            name = { "${PanchaangHelper.getRashiSymbol(it)} ${PanchaangHelper.getMoonRashiName(context, it)}" })
+
         PanchangDay(
             date = date,
             lunarMonth = monthName,
@@ -194,7 +215,9 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
             nakshatra = Nakshatra(PanchaangHelper.getNakshatraName(context, nakshatraNum), nakshatraEnd),
             nakshatraNumber = nakshatraNum,
             yoga = MinorLimb(PanchaangHelper.getYogaName(context, yogaNum), yogaEnd),
-            karana = MinorLimb(PanchaangHelper.getKaranaName(context, karanaNum), null),
+            // The Udaya karana's end, which had no value to give before the day's karanas were
+            // walked. The same period by construction: both start at sunrise.
+            karana = MinorLimb(PanchaangHelper.getKaranaName(context, karanaNum), karanaPeriods.firstOrNull()?.endTime),
             vara = PanchaangHelper.getVaraName(context, dayStart),
             moonRashi = moonRashi,
             muhurats = muhurats,
@@ -206,7 +229,11 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
             raviYoga = raviYoga,
             horas = horas,
             lagnas = lagnas,
-            bhadraKaal = computeBhadraKaal(sunriseJD, nextSunriseJD)
+            bhadraKaal = computeBhadraKaal(sunriseJD, nextSunriseJD),
+            nakshatras = nakshatraPeriods,
+            yogas = yogaPeriods,
+            karanas = karanaPeriods,
+            rashis = rashiPeriods
         )
     }
 
@@ -1108,6 +1135,45 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
         calendar.set(Calendar.SECOND, 0)
         calendar.set(Calendar.MILLISECOND, 0)
         return calendar.time
+    }
+
+    /**
+     * Every period of one limb touching a panchang day, sunrise to next sunrise.
+     *
+     * Walks by taking each period's end as the next one's start, which is only sound because
+     * the end-time searches now land just past the crossing rather than on it — a boundary
+     * instant that still read as the old value would leave this stepping on the spot. See
+     * refineCrossing in native-lib.cpp.
+     *
+     * The first period's start is clipped to sunrise. The limb itself usually began the
+     * previous evening, but the panchang day starts at sunrise and finding the true start
+     * would cost a second scan backwards for a time no caller shows. Bounded at eight so a
+     * limb that somehow fails to advance cannot spin, since this runs inside the ephemeris
+     * queue.
+     */
+    private fun limbPeriods(
+        sunriseJD: Double,
+        nextSunriseJD: Double,
+        valueAt: (Double) -> Int,
+        endFrom: (Double) -> Double,
+        name: (Int) -> String
+    ): List<LimbPeriod> {
+        val periods = mutableListOf<LimbPeriod>()
+        var startJD = sunriseJD
+        while (startJD < nextSunriseJD && periods.size < 8) {
+            val endJD = endFrom(startJD)
+            if (endJD <= startJD) break
+            periods.add(
+                LimbPeriod(
+                    id = periods.size,
+                    name = name(valueAt(startJD)),
+                    startTime = jdToDate(startJD),
+                    endTime = jdToDate(endJD)
+                )
+            )
+            startJD = endJD
+        }
+        return periods
     }
 
     private fun computeHoras(sunriseJD: Double, sunsetJD: Double, nextSunriseJD: Double, weekday: Int): List<HoraInfo> {

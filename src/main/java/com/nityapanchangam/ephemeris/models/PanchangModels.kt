@@ -98,6 +98,34 @@ data class LagnaPeriod(
     }
 }
 
+/**
+ * One stretch of the day during which a limb holds a single value.
+ *
+ * [PanchangDay.nakshatra], [PanchangDay.yoga] and [PanchangDay.karana] are the *Udaya*
+ * readings — taken at sunrise, which is what names the day and what every festival and vrat in
+ * this library is dated by. They are correct and they must not change. But they are also a
+ * snapshot, and a limb moves on during the day: a karana lasts about eleven hours, so by
+ * mid-morning the sunrise reading is describing something that has already finished.
+ *
+ * These lists carry the whole day so a caller can show both — the reading that names the day,
+ * and the one running at this moment. Deliberately periods rather than a "current" field: a
+ * PanchangDay is fetched once and held, while now keeps moving, so anything baked in as
+ * current would go stale in the hand. Hora, Lagna and Chaughariya are already shaped this way.
+ */
+data class LimbPeriod(
+    val id: Int,
+    /** The limb's name, already localized the same way the Udaya reading's is. */
+    val name: String,
+    val startTime: Date,
+    val endTime: Date
+) {
+    operator fun contains(date: Date): Boolean = date >= startTime && date < endTime
+
+    /** Convenience for views, matching [LagnaPeriod]. Prefer [contains] where the instant
+     *  matters — a test, or a screen that pins a date. */
+    val isActive: Boolean get() = Date() in this
+}
+
 data class PanchangDay(
     val date: Date,
     val lunarMonth: String,
@@ -143,7 +171,26 @@ data class PanchangDay(
      * during* dusk. A Trayodashi usually touches two consecutive windows and belongs to
      * whichever holds more of it.
      */
-    val isPradoshVrat: Boolean = false
+    val isPradoshVrat: Boolean = false,
+    /**
+     * Every nakshatra, yoga, karana and Moon-sign touching this panchang day, sunrise to next
+     * sunrise — see [LimbPeriod]. Two or three entries each for the first three; a karana is
+     * about half a tithi, so three of them usually reach into one day.
+     *
+     * [rashis] is usually a single entry whose end falls a day or two out: a rashi is 30
+     * degrees and the Moon covers about 13.2 a day, so it holds one sign for roughly two and a
+     * quarter days. Unlike the others it often does not change during the day at all, and the
+     * useful fact is when the Moon next moves on.
+     *
+     * Bounded by sunrise the way the hora and lagna lists are, so nothing is active between
+     * midnight and sunrise: before sunrise the panchang day has not begun.
+     *
+     * Defaulted to empty so existing callers, previews and tests are unaffected.
+     */
+    val nakshatras: List<LimbPeriod> = emptyList(),
+    val yogas: List<LimbPeriod> = emptyList(),
+    val karanas: List<LimbPeriod> = emptyList(),
+    val rashis: List<LimbPeriod> = emptyList()
 )
 
 /**

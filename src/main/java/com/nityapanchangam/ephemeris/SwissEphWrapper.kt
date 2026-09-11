@@ -64,6 +64,11 @@ class SwissEphWrapper(context: Context) {
 
     external fun calculateMoonRashiForJulianDay(jd: Double): Int
 
+    /** When the Moon leaves the sign it holds at [startJD]. Searched over three days rather
+     *  than the day and a half the nakshatra and yoga scans use: the Moon sits in one sign for
+     *  about two and a quarter days, so a shorter window would miss the crossing outright. */
+    external fun calculateMoonRashiEndTimeForJulianDay(startJD: Double): Double
+
     // Returning a simple double array for planet positions to keep JNI simple
     // [planetIndex, longitude, rashiNumber, degrees, ...] repeats for 9 planets
     external fun calculatePlanetPositionsForJulianDay(jd: Double): DoubleArray
