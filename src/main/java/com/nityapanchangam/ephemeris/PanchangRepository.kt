@@ -1143,7 +1143,12 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
                             if (rule.tithiNumber != skipped || rule.lunarMonth != skippedMonth) continue
                             val key = "${rule.name}-${prev.third}"
                             if (seen.add(key)) {
-                                fallback.add(HinduFestival(rule.name, prev.first, rule.emoji, rule.hasIcon))
+                                // regions must be carried here too. Without it a festival
+                                // whose tithi is kshaya that year came back as ALL and showed
+                                // for every reader — Datta Jayanti does exactly that in 2026,
+                                // when the Margashirsha Purnima is skipped.
+                                fallback.add(HinduFestival(rule.name, prev.first, rule.emoji,
+                                                           rule.hasIcon, rule.regions))
                             }
                         }
                     }

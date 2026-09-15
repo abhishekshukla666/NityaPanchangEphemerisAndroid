@@ -25,11 +25,19 @@ object FestivalRegion {
     const val GUJARAT = 1 shl 1
     const val KARNATAKA = 1 shl 2
     const val TELUGU = 1 shl 3
+    const val MAHARASHTRA = 1 shl 4
 
-    /** Kept everywhere the app is read. */
-    const val ALL = NORTH or GUJARAT or KARNATAKA or TELUGU
+    /**
+     * Kept everywhere the app is read. Adding a region widens every existing ALL rule to the
+     * new audience, which is the intent: a pan-Indian festival does not stop being pan-Indian
+     * because one more calendar can now be selected.
+     */
+    const val ALL = NORTH or GUJARAT or KARNATAKA or TELUGU or MAHARASHTRA
     /** The two southern calendars, which share most of what the north does not. */
     const val SOUTH = KARNATAKA or TELUGU
+    /** Maharashtra keeps Amanta months like the south, but its festival calendar sits closer
+     *  to the Deccan than to either — so it is its own bit, not a member of SOUTH. */
+    const val DECCAN = KARNATAKA or MAHARASHTRA
 }
 
 data class HinduFestival(
@@ -158,6 +166,9 @@ val regionalFestivalRules: List<FestivalRule> = listOf(
     FestivalRule("Jaya Parvati Vrat", 4, 28, "🌺", regions = FestivalRegion.GUJARAT),
     FestivalRule("Randhan Chhath", 5, 6, "🍲", regions = FestivalRegion.GUJARAT),
     FestivalRule("Shitala Satam", 5, 7, "🙏", regions = FestivalRegion.GUJARAT),
+    // Kutchi new year, the Ashadha Shukla Dwitiya that is also Rath Yatra.
+    FestivalRule("Ashadhi Beej", 4, 17, "🌾", regions = FestivalRegion.GUJARAT),
+    FestivalRule("Bhadarvi Poonam", 6, 30, "🌝", regions = FestivalRegion.GUJARAT),
     FestivalRule("Gowri Habba", 6, 18, "🌺", regions = FestivalRegion.KARNATAKA),
     FestivalRule("Ayudha Puja", 7, 24, "🛠️", regions = FestivalRegion.SOUTH),
     FestivalRule("Basava Jayanti", 2, 18, "🙏", regions = FestivalRegion.KARNATAKA),
@@ -166,6 +177,22 @@ val regionalFestivalRules: List<FestivalRule> = listOf(
     FestivalRule("Atla Tadde", 7, 3, "🥞", regions = FestivalRegion.TELUGU),
     FestivalRule("Nagula Chavithi", 8, 19, "🐍", regions = FestivalRegion.TELUGU),
     FestivalRule("Boddemma", 6, 23, "💐", regions = FestivalRegion.TELUGU),
+    // The same Shravana Amavasya Maharashtra keeps as Bail Pola.
+    FestivalRule("Polala Amavasya", 6, 15, "🐄", regions = FestivalRegion.TELUGU),
+    // Maharashtra. Narali Purnima is the Shravana Purnima the north keeps as Raksha Bandhan;
+    // Bail Pola the Shravana Amavasya, which is a Bhadrapada Krishna tithi in the Purnimanta
+    // months these rules count in; Rang Panchami the fifth day after Holi, so a Chaitra
+    // Krishna tithi rather than a Phalguna one.
+    FestivalRule("Narali Purnima", 5, 30, "🥥", regions = FestivalRegion.MAHARASHTRA),
+    FestivalRule("Bail Pola", 6, 15, "🐂", regions = FestivalRegion.MAHARASHTRA),
+    FestivalRule("Rang Panchami", 1, 5, "🎨", regions = FestivalRegion.MAHARASHTRA),
+    FestivalRule("Datta Jayanti", 9, 30, "🕉️", regions = FestivalRegion.MAHARASHTRA),
+    // The winter Ganesh Jayanti, distinct from the Bhadrapada Ganesh Chaturthi.
+    FestivalRule("Ganesh Jayanti", 11, 19, "🐘", regions = FestivalRegion.MAHARASHTRA),
+    // One Margashirsha Shukla Shashthi under two names: Khandoba in Maharashtra,
+    // Subrahmanya in Karnataka. Each region gets its own.
+    FestivalRule("Champa Shashthi", 9, 21, "🙏", regions = FestivalRegion.MAHARASHTRA),
+    FestivalRule("Subrahmanya Shashti", 9, 21, "🐍", regions = FestivalRegion.KARNATAKA),
     // Friday before Shravana Purnima: dated by weekday, not by tithi. Calendar.FRIDAY == 6,
     // the same number iOS uses for Calendar.component(.weekday:).
     FestivalRule("Varalakshmi Vratam", 5, 23, "🪷", regions = FestivalRegion.SOUTH,
