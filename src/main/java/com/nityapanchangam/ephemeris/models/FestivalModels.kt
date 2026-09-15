@@ -253,7 +253,10 @@ val panIndianFestivalRules: List<FestivalRule> = listOf(
     // 2020-2035; 2026 is the live one, where Chaturthi covers the 14th's Madhyahna and has
     // ended before the 15th's, while the sunrise reading pointed at the 15th.
     FestivalRule("Ganesh Chaturthi", 6, 19, "ganesh", ObservationTime.MADHYAHNA, hasIcon = true),
-    FestivalRule("Rishi Panchami", 6, 20, "🌸"),
+    // Madhyahna-vyapini: the Panchami prevailing at MIDDAY, not the one current at sunrise.
+    // The two pick different days whenever the tithi turns over during the morning — in 2026
+    // Panchami runs 07:44 on the 15th to 08:59 on the 16th, covering midday only on the 15th.
+    FestivalRule("Rishi Panchami", 6, 20, "🌸", ObservationTime.MADHYAHNA),
     FestivalRule("Radha Ashtami", 6, 23, "🪈"),
     FestivalRule("Anant Chaturdashi", 6, 29, "conch_shell", hasIcon = true),
 
