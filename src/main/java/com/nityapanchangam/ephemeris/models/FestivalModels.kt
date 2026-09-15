@@ -1,12 +1,47 @@
 package com.nityapanchangam.ephemeris.models
 
+import java.util.Calendar
 import java.util.Date
+
+
+/**
+ * Which regional calendar keeps a festival, as a bitmask.
+ *
+ * A set rather than a single value: most days are kept everywhere, and the ones that are not
+ * are often kept in two regions but not a third. Bestu Varas is Gujarat's new year on the same
+ * day Karnataka keeps Balipadyami, and both fall on the Kartika Shukla Pratipada the north
+ * calls Govardhan Puja — one date, three names, three audiences.
+ *
+ * Existing rules are all [ALL], deliberately. Tagging the Hindi-belt days (Chhath, Karwa
+ * Chauth, Ahoi Ashtami) as north-only would silently remove festivals that readers of the
+ * shipped app already see, which is a decision for the app's owner rather than a side effect
+ * of adding three languages. Narrowing them later is a one-word change per rule.
+ *
+ * Mirrors iOS's FestivalRegion OptionSet, bit for bit, so a date computed on one platform
+ * carries the same regions on the other.
+ */
+object FestivalRegion {
+    const val NORTH = 1 shl 0
+    const val GUJARAT = 1 shl 1
+    const val KARNATAKA = 1 shl 2
+    const val TELUGU = 1 shl 3
+
+    /** Kept everywhere the app is read. */
+    const val ALL = NORTH or GUJARAT or KARNATAKA or TELUGU
+    /** The two southern calendars, which share most of what the north does not. */
+    const val SOUTH = KARNATAKA or TELUGU
+}
 
 data class HinduFestival(
     val name: String,
     val date: Date,
     val emoji: String,
-    val hasIcon: Boolean = false
+    val hasIcon: Boolean = false,
+    /**
+     * Where this day is kept. Defaulted so every existing call site — and any caller that
+     * does not care — keeps compiling and keeps meaning "kept everywhere".
+     */
+    val regions: Int = FestivalRegion.ALL
 )
 
 /**
@@ -43,8 +78,27 @@ data class FestivalRule(
     val tithiNumber: Int,
     val emoji: String,
     val observationTime: ObservationTime = ObservationTime.SUNRISE,
-    val hasIcon: Boolean = false
+    val hasIcon: Boolean = false,
+    val regions: Int = FestivalRegion.ALL,
+    /**
+     * Upper bound when the rule matches a RANGE of tithis rather than one.
+     *
+     * Varalakshmi Vratam is the Friday before Shravana Purnima, which is not a tithi at all --
+     * it is whichever tithi that Friday happens to land on. Pairing a range with [weekday]
+     * expresses it exactly: the Friday whose tithi falls in the week before the full moon, and
+     * there is only ever one.
+     */
+    val tithiUpperBound: Int? = null,
+    /**
+     * Calendar weekday (Calendar.SUNDAY == 1) the day must fall on, when the observance is
+     * defined by the weekday rather than by the tithi alone.
+     */
+    val weekday: Int? = null
 ) {
+    /** Whether [tithi] satisfies this rule, single value or range. */
+    fun matches(tithi: Int): Boolean =
+        tithiUpperBound?.let { tithi in tithiNumber..it } ?: (tithi == tithiNumber)
+
     /**
      * A vriddhi Ekadashi — one whose tithi is current at two consecutive sunrises — is kept
      * on the **second** day, not the first.
@@ -81,7 +135,52 @@ data class StaticFestivalRule(
 // and closes at the next Purnima. Tithi numbering within each month:
 //   Krishna 1-14 + Amavasya  = tithis  1-15  (dark fortnight, opens the month)
 //   Shukla  1-14 + Purnima   = tithis 16-30  (bright fortnight, closes the month)
-val allFestivalRules: List<FestivalRule> = listOf(
+/**
+ * Days kept in one regional calendar but not across all of them.
+ *
+ * Tithi numbers follow the same Purnimanta convention as the table above — Krishna 1-15,
+ * Shukla 16-30 — because every rule here matches on the Purnimanta month the ephemeris
+ * carries, whatever convention the app happens to display.
+ *
+ * Several fall on a day the pan-Indian table already names: Bestu Varas is the Kartika Shukla
+ * Pratipada the north calls Govardhan Puja, Gowri Habba the Bhadrapada Shukla Tritiya the
+ * north calls Hartalika Teej. They are separate rules rather than aliases because a Gujarati
+ * reader looking for their new year will not find it under "Govardhan Puja", and the two are
+ * genuinely different observances that happen to share a date.
+ *
+ * Kept identical to iOS's regionalFestivalRules; the Swift file is the source both were
+ * written from.
+ */
+val regionalFestivalRules: List<FestivalRule> = listOf(
+    FestivalRule("Bestu Varas", 8, 16, "🪔", regions = FestivalRegion.GUJARAT),
+    FestivalRule("Labh Pancham", 8, 20, "📿", regions = FestivalRegion.GUJARAT),
+    FestivalRule("Vagh Baras", 8, 12, "🐄", regions = FestivalRegion.GUJARAT),
+    FestivalRule("Jaya Parvati Vrat", 4, 28, "🌺", regions = FestivalRegion.GUJARAT),
+    FestivalRule("Randhan Chhath", 5, 6, "🍲", regions = FestivalRegion.GUJARAT),
+    FestivalRule("Shitala Satam", 5, 7, "🙏", regions = FestivalRegion.GUJARAT),
+    FestivalRule("Gowri Habba", 6, 18, "🌺", regions = FestivalRegion.KARNATAKA),
+    FestivalRule("Ayudha Puja", 7, 24, "🛠️", regions = FestivalRegion.SOUTH),
+    FestivalRule("Basava Jayanti", 2, 18, "🙏", regions = FestivalRegion.KARNATAKA),
+    FestivalRule("Balipadyami", 8, 16, "🪔", regions = FestivalRegion.KARNATAKA),
+    FestivalRule("Bathukamma", 7, 15, "💐", regions = FestivalRegion.TELUGU),
+    FestivalRule("Atla Tadde", 7, 3, "🥞", regions = FestivalRegion.TELUGU),
+    FestivalRule("Nagula Chavithi", 8, 19, "🐍", regions = FestivalRegion.TELUGU),
+    FestivalRule("Boddemma", 6, 23, "💐", regions = FestivalRegion.TELUGU),
+    // Friday before Shravana Purnima: dated by weekday, not by tithi. Calendar.FRIDAY == 6,
+    // the same number iOS uses for Calendar.component(.weekday:).
+    FestivalRule("Varalakshmi Vratam", 5, 23, "🪷", regions = FestivalRegion.SOUTH,
+        tithiUpperBound = 29, weekday = Calendar.FRIDAY),
+    FestivalRule("Vaikuntha Ekadashi", 9, 26, "🛕", regions = FestivalRegion.SOUTH),
+)
+
+/**
+ * Every tithi-derived rule the engine evaluates: the pan-Indian table plus the regional one.
+ * Kept as a join rather than by pasting the regional days into the main table, so "which of
+ * these is regional" stays answerable by reading one list.
+ */
+val allFestivalRules: List<FestivalRule> get() = panIndianFestivalRules + regionalFestivalRules
+
+val panIndianFestivalRules: List<FestivalRule> = listOf(
 
     // Chaitra (1)
     FestivalRule("Sheetala Ashtami", 1, 8, "🙏"),

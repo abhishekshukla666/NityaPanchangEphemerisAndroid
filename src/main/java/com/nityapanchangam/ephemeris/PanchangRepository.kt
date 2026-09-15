@@ -32,6 +32,19 @@ import com.nityapanchangam.ephemeris.PanchaangHelper.localizedFormat
  *
  * None of the public methods call one another, so the non-reentrant mutex cannot self-deadlock.
  */
+
+/**
+ * One solar-derived festival: a day no tithi rule can express, because it is fixed by the
+ * Sun's ingress rather than by the Moon. Replaces the Triple this list used to hold, which
+ * had no room for the region.
+ */
+private data class SolarDay(
+    val name: String,
+    val date: Date,
+    val emoji: String,
+    val regions: Int = FestivalRegion.ALL
+)
+
 class PanchangRepository(private val context: Context, private val wrapper: SwissEphWrapper) {
 
     private companion object {
@@ -439,6 +452,16 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
                 // a day of sunrise — cannot be either. The >= 28 arm handles the wrap from
                 // Amavasya back to Pratipada.
                 fun nearSunrise(): Boolean {
+                    // A ranged rule is near sunrise if ANY tithi in its range is — measuring
+                    // only from the lower bound would discard a week-wide rule five days
+                    // before it was due to fire.
+                    val upper = rule.tithiUpperBound ?: rule.tithiNumber
+                    if (rule.tithiUpperBound != null) {
+                        return (rule.tithiNumber..upper).any { target ->
+                            val d = abs(tithiSunrise - target)
+                            d <= 2 || d >= 28
+                        }
+                    }
                     val diff = abs(tithiSunrise - rule.tithiNumber)
                     return diff <= 2 || diff >= 28
                 }
@@ -529,12 +552,21 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
 
                 if (anchor.isAdhik || anchor.month !in 1..12) continue
 
-                if (rule.lunarMonth == anchor.month && rule.tithiNumber == anchor.tithi) {
+                // A rule defined by weekday — Varalakshmi Vratam is the Friday before
+                // Shravana Purnima — only fires on that weekday.
+                val wantedWeekday = rule.weekday
+                if (wantedWeekday != null) {
+                    val dow = Calendar.getInstance().apply { time = current }.get(Calendar.DAY_OF_WEEK)
+                    if (dow != wantedWeekday) continue
+                }
+
+                if (rule.lunarMonth == anchor.month && rule.matches(anchor.tithi)) {
                     // Vriddhi: when the tithi also holds tomorrow's sunrise, an Ekadashi
                     // belongs to that second day, not this first one — today is the
                     // Dashami-viddha side. Everything else keeps the first sunrise its tithi
                     // touches, which is what the `seen` set already gives it.
-                    if (rule.resolvesForward && rule.observationTime == ObservationTime.SUNRISE) {
+                    if (rule.resolvesForward && rule.tithiUpperBound == null &&
+                        rule.observationTime == ObservationTime.SUNRISE) {
                         val tomorrow = Calendar.getInstance().apply {
                             time = current; add(Calendar.DAY_OF_YEAR, 1)
                         }.time
@@ -545,7 +577,9 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
 
                     val key = "${rule.name}-$calYear"
                     if (seen.add(key)) {
-                        festivals.add(HinduFestival(rule.name, current, rule.emoji, rule.hasIcon))
+                        festivals.add(
+                            HinduFestival(rule.name, current, rule.emoji, rule.hasIcon, rule.regions)
+                        )
                     }
                 }
             }
@@ -580,7 +614,7 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
             val makarSankranti = sankrantiDeferringPastSunset(
                 solarIngressJD(year, Calendar.JANUARY, 10, 270.0))
             val computed = listOf(
-                Triple("Makar Sankranti", makarSankranti, "🌾"),
+                SolarDay("Makar Sankranti", makarSankranti, "🌾"),
                 // Lohri is the last night of Poh — the eve of Maghi — so it follows Makar
                 // Sankranti rather than sitting on a fixed 13 January. It was modelled as a
                 // static date, which is right in most years and wrong in the two-in-five where
@@ -589,21 +623,40 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
                 // Sankranti, deferral included, which is what discriminates 2023: the ingress
                 // was on the 14th at 20:45, after sunset, so Maghi moved to the 15th and Lohri
                 // with it.
-                Triple("Lohri", Calendar.getInstance().apply {
+                SolarDay("Lohri", Calendar.getInstance().apply {
                     time = makarSankranti
                     add(Calendar.DAY_OF_YEAR, -1)
                 }.time, "🔥"),
-                Triple("Vishwakarma Puja", sankrantiDeferringPastSunset(
+                // The Telugu Sankranti is three days, and the outer two are taken from the
+                // middle one for the same reason Lohri is: they are defined as its eve and
+                // its morrow, not as fixed dates, so they follow it into the years it falls
+                // on the 15th.
+                SolarDay("Bhogi", Calendar.getInstance().apply {
+                    time = makarSankranti
+                    add(Calendar.DAY_OF_YEAR, -1)
+                }.time, "🔥", FestivalRegion.TELUGU),
+                SolarDay("Kanuma", Calendar.getInstance().apply {
+                    time = makarSankranti
+                    add(Calendar.DAY_OF_YEAR, 1)
+                }.time, "🐄", FestivalRegion.TELUGU),
+                // The other two cardinal ingresses. Karka opens Dakshinayana and Tula opens
+                // the second half of the ritual year; both are seasonal markers kept across
+                // regions rather than a single region's day.
+                SolarDay("Karka Sankranti",
+                    sankrantiByHinduDay(solarIngressJD(year, Calendar.JULY, 12, 90.0)), "🌧️"),
+                SolarDay("Tula Sankranti",
+                    sankrantiByHinduDay(solarIngressJD(year, Calendar.OCTOBER, 13, 180.0)), "🍂"),
+                SolarDay("Vishwakarma Puja", sankrantiDeferringPastSunset(
                     solarIngressJD(year, Calendar.SEPTEMBER, 12, 150.0)), "🛠️"),
-                Triple("Baisakhi", sankrantiByHinduDay(mesha), "🌾"),
-                Triple("Solar New Year", sankrantiByHinduDay(mesha), "☀️"),
-                Triple("Good Friday", goodFriday(year), "✝️")
+                SolarDay("Baisakhi", sankrantiByHinduDay(mesha), "🌾"),
+                SolarDay("Solar New Year", sankrantiByHinduDay(mesha), "☀️"),
+                SolarDay("Good Friday", goodFriday(year), "✝️")
             )
-            for ((name, date, emoji) in computed) {
+            for ((name, date, emoji, regions) in computed) {
                 if (date >= getStartOfDay(startDate) && date <= getStartOfDay(endDate) &&
                     seen.add("$name-$year")
                 ) {
-                    festivals.add(HinduFestival(name, date, emoji, false))
+                    festivals.add(HinduFestival(name, date, emoji, false, regions))
                 }
             }
         }
