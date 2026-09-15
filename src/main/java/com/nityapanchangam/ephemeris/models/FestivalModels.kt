@@ -360,7 +360,7 @@ val panIndianFestivalRules: List<FestivalRule> = listOf(
 
     // 6. Bhadrapada
     FestivalRule("Aja Ekadashi", 6, 11, "🛕"),
-    FestivalRule("Parivartini Ekadashi", 6, 26, "🛕"),
+    FestivalRule("Parsva Ekadashi", 6, 26, "🛕"),
 
     // 7. Ashwina
     FestivalRule("Indira Ekadashi", 7, 11, "🛕"),
