@@ -166,8 +166,22 @@ object PanchaangHelper {
         return listOf(1, 9, 10, 18, 19, 27).contains(nakshatraNumber)
     }
 
-    fun isPanchak(nakshatraNumber: Int): Boolean {
-        return nakshatraNumber >= 23
+    /**
+     * Panchak — the Moon in Kumbha or Meena; avoid south travel, construction, cremation.
+     *
+     * Read from the Moon's SIGN, not its nakshatra, and that distinction is the whole of this
+     * function. "The last five nakshatras" is how Panchak is usually described and it is half a
+     * nakshatra wrong: the period is the Moon's passage through Kumbha and Meena, 300 to 360
+     * degrees, which begins at Dhanishtha's THIRD pada. Dhanishtha spans 293°20'-306°40', so
+     * its first half lies in Makara and is not Panchak at all.
+     *
+     * Testing the nakshatra number instead opened the period 6°40' early — about twelve and a
+     * half hours of Moon travel, which crosses a sunrise often enough that seven days of 2026
+     * were flagged Panchak a day before it began. It can only ever over-report, never miss: the
+     * other four nakshatras lie wholly inside the two signs.
+     */
+    fun isPanchak(moonRashiNumber: Int): Boolean {
+        return moonRashiNumber == 11 || moonRashiNumber == 12
     }
 
     fun getFestivalName(context: Context, name: String): String {

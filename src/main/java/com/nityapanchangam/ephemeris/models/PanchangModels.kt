@@ -162,6 +162,15 @@ data class PanchangDay(
     val karana: MinorLimb,
     val vara: String,
     val moonRashi: String,
+    /**
+     * The same sign as a number, 1-12, Aries..Pisces.
+     *
+     * Carried beside the label because a rule has to be able to ASK which sign this is.
+     * Panchak is the Moon in Kumbha or Meena, and [moonRashi] is built with a LOCALIZED name,
+     * so a rule that looked for "Aquarius" inside it would answer correctly in English and
+     * silently stop working in every other language this app ships.
+     */
+    val moonRashiNumber: Int,
     val muhurats: List<Muhurat>,
     val chaughariya: List<Muhurat>,
     val nightChaughariya: List<Muhurat>,
@@ -274,6 +283,7 @@ data class DailyPanchangSummary(
     val date: Date,
     val tithiNumber: Int,        // 1-30, at sunrise (Udaya Tithi)
     val nakshatraNumber: Int,    // 1-27
+    val moonRashiNumber: Int,    // 1-12, Aries..Pisces
     val lunarMonth: Int,         // 1-12, Purnimanta
     val isAdhikMaas: Boolean,
     /**
