@@ -40,6 +40,18 @@ data class Muhurat(
     val type: MuhuratType
 )
 
+/**
+ * The twelve bodies at a moment, split the way [PanchangDay] splits them.
+ *
+ * Uranus, Neptune and Pluto stay apart from the nine for the reason they always do: no
+ * classical rule has a place for them, and code that reasons about the Navagraha must not pick
+ * them up by accident.
+ */
+data class PlanetSnapshot(
+    val navagraha: List<PlanetPosition>,
+    val outer: List<PlanetPosition>
+)
+
 data class PlanetPosition(
     val id: Int,
     val name: String,

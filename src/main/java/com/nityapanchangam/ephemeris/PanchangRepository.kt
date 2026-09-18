@@ -1309,6 +1309,29 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
         }
     }
 
+    /**
+     * Where the grahas are at one instant, rather than at a day's sunrise.
+     *
+     * [fetchPanchang] reads every position at sunrise, because every panchang limb is read
+     * there -- the tithi, the nakshatra and the yoga are the *day's*, and a panchang day begins
+     * at sunrise. That is right for the limbs and wrong for a card that says where the planets
+     * ARE: Mars entered Karka at 16:35 on 18 September 2026 and a sunrise reading went on
+     * saying Mithun until the following dawn, a quarter of a degree short of the boundary it
+     * had already crossed.
+     *
+     * Needs no location. A graha's longitude is the same from everywhere; only the rising sign
+     * and the day's limbs depend on where you stand.
+     */
+    suspend fun fetchPlanetPositions(date: Date): PlanetSnapshot = ephemerisCall {
+        val jd = dateToJD(date)
+        PlanetSnapshot(
+            navagraha = PanchaangHelper.buildPlanetPositions(
+                context, wrapper.calculatePlanetPositionsForJulianDay(jd)),
+            outer = PanchaangHelper.buildPlanetPositions(
+                context, wrapper.calculateOuterPlanetPositionsForJulianDay(jd))
+        )
+    }
+
     suspend fun fetchBirthChart(date: Date, latitude: Double, longitude: Double): BirthChart = ephemerisCall {
         val jd = dateToJD(date)
 
