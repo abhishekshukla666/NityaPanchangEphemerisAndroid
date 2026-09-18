@@ -467,6 +467,34 @@ JNIEXPORT jdouble JNICALL Java_com_nityapanchangam_ephemeris_SwissEphWrapper_cal
     return refineCrossing(searchJD - step, searchJD, startingRashi, getRashi);
 }
 
+// The same search run backwards, for when the Moon's current sign BEGAN.
+//
+// Panchak is the Moon's passage through Kumbha and Meena, so its start is the instant the Moon
+// entered Kumbha — usually before the sunrise of the day that first reports it. A period cannot
+// be stated from a day flag.
+JNIEXPORT jdouble JNICALL Java_com_nityapanchangam_ephemeris_SwissEphWrapper_calculateMoonRashiStartTimeForJulianDay(JNIEnv *env, jobject thiz, jdouble startJD) {
+    auto getRashi = [](double jd) {
+        swe_set_sid_mode(SE_SIDM_LAHIRI, 0, 0);
+        double moonPosition[6];
+        char errorMessage[256];
+        swe_calc_ut(jd, SE_MOON, SEFLG_SWIEPH | SEFLG_SIDEREAL, moonPosition, errorMessage);
+        return (int)(moonPosition[0] / 30.0) + 1;
+    };
+
+    int startingRashi = getRashi(startJD);
+    double step = 15.0 / (24.0 * 60.0);
+    double searchJD = startJD;
+    int searchRashi = startingRashi;
+    while (searchRashi == startingRashi) {
+        searchJD -= step;
+        searchRashi = getRashi(searchJD);
+        // Three days, matching the forward search: the Moon crosses a sign in about two and a
+        // quarter, so reaching this means something is wrong rather than that a sign is long.
+        if (searchJD < startJD - 3.0) { return searchJD; }
+    }
+    return refineCrossing(searchJD + step, searchJD, startingRashi, getRashi);
+}
+
 JNIEXPORT jdoubleArray JNICALL Java_com_nityapanchangam_ephemeris_SwissEphWrapper_calculatePlanetPositionsForJulianDay(JNIEnv *env, jobject thiz, jdouble jd) {
     swe_set_sid_mode(SE_SIDM_LAHIRI, 0, 0);
     // SEFLG_SPEED fills pos[3] with daily motion in longitude. A negative value is Vakri
@@ -596,6 +624,31 @@ JNIEXPORT jdouble JNICALL Java_com_nityapanchangam_ephemeris_SwissEphWrapper_cal
         if (searchJD > startJD + 0.833) { return searchJD; }
     }
     return refineCrossing(searchJD - step, searchJD, startingKarana, [&](double j) {
+        return (int)Java_com_nityapanchangam_ephemeris_SwissEphWrapper_calculateKaranaForJulianDay(env, thiz, j);
+    });
+}
+
+// The same search run backwards, for when a karana BEGAN.
+//
+// Bhadra used to find its start by stepping back in fifteen-minute hops and stopping on the
+// last grid point still inside the karana, which is accurate only to a quarter of an hour —
+// and worse, the grid is anchored to whichever sunrise the scan started from, so two
+// consecutive days reported starts thirteen minutes apart for the SAME Bhadra. A warning whose
+// start time moves depending on which day you read it from is not one anyone can plan around.
+//
+// The bracket is passed the same way round as the forward case — the holding side first — so
+// the refiner's own invariant is unchanged; only the direction of the walk differs.
+JNIEXPORT jdouble JNICALL Java_com_nityapanchangam_ephemeris_SwissEphWrapper_calculateKaranaStartTimeForJulianDay(JNIEnv *env, jobject thiz, jdouble startJD) {
+    jint startingKarana = Java_com_nityapanchangam_ephemeris_SwissEphWrapper_calculateKaranaForJulianDay(env, thiz, startJD);
+    double step = 15.0 / (24.0 * 60.0);
+    double searchJD = startJD;
+    jint searchKarana = startingKarana;
+    while (searchKarana == startingKarana) {
+        searchJD -= step;
+        searchKarana = Java_com_nityapanchangam_ephemeris_SwissEphWrapper_calculateKaranaForJulianDay(env, thiz, searchJD);
+        if (searchJD < startJD - 0.833) { return searchJD; }
+    }
+    return refineCrossing(searchJD + step, searchJD, startingKarana, [&](double j) {
         return (int)Java_com_nityapanchangam_ephemeris_SwissEphWrapper_calculateKaranaForJulianDay(env, thiz, j);
     });
 }

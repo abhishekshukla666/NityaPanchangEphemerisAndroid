@@ -184,6 +184,12 @@ data class PanchangDay(
      *  between sunrise and the next sunrise. */
     val bhadraKaal: Muhurat? = null,
     /**
+     * The Panchak window touching this day — the Moon's passage through Kumbha and Meena — or
+     * null on the days it does not. A window rather than a flag because Panchak begins at an
+     * instant, not at a sunrise.
+     */
+    val panchakKaal: Muhurat? = null,
+    /**
      * The Amanta name for this same day, a display-only parallel to [lunarMonth].
      *
      * Every internal rule -- festivals, Ekadashi, Samvat, Ritu -- keeps matching against the

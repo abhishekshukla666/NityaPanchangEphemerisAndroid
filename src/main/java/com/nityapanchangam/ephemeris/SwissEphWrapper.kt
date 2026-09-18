@@ -69,6 +69,13 @@ class SwissEphWrapper(context: Context) {
      *  about two and a quarter days, so a shorter window would miss the crossing outright. */
     external fun calculateMoonRashiEndTimeForJulianDay(startJD: Double): Double
 
+    /**
+     * When the Moon's current sign began. The mirror of the end search above, and what lets
+     * Panchak state the moment the Moon entered Kumbha rather than the sunrise it was first
+     * noticed at.
+     */
+    external fun calculateMoonRashiStartTimeForJulianDay(startJD: Double): Double
+
     /** One graha's sidereal longitude, by the same 0-8 ids [calculatePlanetPositionsForJulianDay]
      *  uses. Ketu is computed as Rahu's opposite point rather than looked up. */
     external fun calculatePlanetLongitudeForJulianDay(planetIndex: Int, jd: Double): Double
@@ -107,6 +114,12 @@ class SwissEphWrapper(context: Context) {
     external fun calculateKaranaForJulianDay(jd: Double): Int
 
     external fun calculateKaranaEndTimeForJulianDay(startJD: Double): Double
+
+    /**
+     * When the karana holding at [startJD] began. The mirror of the end search above, and the
+     * only way to state a Bhadra's start without rounding it.
+     */
+    external fun calculateKaranaStartTimeForJulianDay(startJD: Double): Double
 
     external fun getJulianDayUTC(year: Int, month: Int, day: Int, hourDecimal: Double): Double
 }

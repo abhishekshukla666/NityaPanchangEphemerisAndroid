@@ -249,6 +249,7 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
             horas = horas,
             lagnas = lagnas,
             bhadraKaal = computeBhadraKaal(sunriseJD, nextSunriseJD),
+            panchakKaal = computePanchakKaal(sunriseJD, nextSunriseJD),
             nakshatras = nakshatraPeriods,
             yogas = yogaPeriods,
             karanas = karanaPeriods,
@@ -264,10 +265,60 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
      *
      * A karana already under way at sunrise is walked backward to its true start rather than
      * clipped to sunrise: a warning needs an accurate start time to be useful, not just "some
-     * time before now".
+     * time before now". The window is reported whole, never trimmed to the panchang day that
+     * found it.
      */
+    /**
+     * The Panchak window touching this panchang day, if any.
+     *
+     * A period, not a day flag, for the reason the Bhadra window is one: Panchak is the Moon's
+     * passage through Kumbha and Meena, and it begins when the Moon crosses 300 degrees — 21:57
+     * on 23 September 2026, long after that day's sunrise. Asking "which sign is the Moon in at
+     * sunrise" answers no on the 23rd and leaves the advisory silent through an evening that is
+     * already Panchak, while the Quick Lookup card, which reasons about the period, says the
+     * 23rd. The two disagreed on screen.
+     *
+     * Reported whole — the Moon's entry into Kumbha to its exit from Meena, about four and a
+     * half days — so every day it touches shows the same start and end rather than its own
+     * slice of it.
+     */
+    private fun computePanchakKaal(sunriseJD: Double, nextSunriseJD: Double): Muhurat? {
+        fun isPanchak(jd: Double) =
+            PanchaangHelper.isPanchak(wrapper.calculateMoonRashiForJulianDay(jd))
+
+        // Either the day opens inside Panchak, or the Moon enters Kumbha before the next
+        // sunrise. Those are the only two ways it can touch this day: the Moon takes over two
+        // days to cross one sign, so it cannot enter and leave within a single day.
+        val insideJD: Double
+        if (isPanchak(sunriseJD)) {
+            insideJD = sunriseJD
+        } else {
+            val nextSignJD = wrapper.calculateMoonRashiEndTimeForJulianDay(sunriseJD)
+            if (nextSignJD >= nextSunriseJD || !isPanchak(nextSignJD)) return null
+            insideJD = nextSignJD
+        }
+
+        // Back to the entry into Kumbha, then forward to the exit from Meena. At most two hops
+        // each way, since the window is exactly two signs.
+        var startJD = wrapper.calculateMoonRashiStartTimeForJulianDay(insideJD)
+        if (isPanchak(startJD - 0.001)) {
+            startJD = wrapper.calculateMoonRashiStartTimeForJulianDay(startJD - 0.001)
+        }
+        var endJD = wrapper.calculateMoonRashiEndTimeForJulianDay(insideJD)
+        if (isPanchak(endJD + 0.001)) {
+            endJD = wrapper.calculateMoonRashiEndTimeForJulianDay(endJD + 0.001)
+        }
+
+        return Muhurat(
+            id = "panchak",
+            name = context.localized("panchak", "Panchak"),
+            startTime = jdToDate(startJD),
+            endTime = jdToDate(endJD),
+            type = MuhuratType.INAUSPICIOUS
+        )
+    }
+
     private fun computeBhadraKaal(sunriseJD: Double, nextSunriseJD: Double): Muhurat? {
-        val step = 15.0 / 1440.0
         var searchJD = sunriseJD
 
         while (searchJD < nextSunriseJD) {
@@ -278,17 +329,20 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
             val isVishti = karanaNum in 2..57 && (karanaNum - 2) % 7 == 6
 
             if (isVishti) {
-                var startJD = searchJD
-                while (startJD - step >= sunriseJD - 0.833 &&
-                    wrapper.calculateKaranaForJulianDay(startJD - step) == karanaNum
-                ) {
-                    startJD -= step
-                }
+                // The true boundary, by the same bisection the end uses. The old
+                // fifteen-minute backward walk stopped on a grid anchored to the sunrise the
+                // scan began at, so consecutive days reported starts thirteen minutes apart
+                // for one Bhadra.
+                val startJD = wrapper.calculateKaranaStartTimeForJulianDay(searchJD)
                 return Muhurat(
                     id = "bhadra",
                     name = context.localized("bhadra_kaal", "Bhadra Kaal"),
                     startTime = jdToDate(startJD),
-                    endTime = jdToDate(minOf(endJD, nextSunriseJD)),
+                    // The karana's own end, never the next sunrise. Clipping it announced a
+                    // Bhadra running to 15:27 as ending at 06:09 on the previous day's card —
+                    // telling a reader the period they must not begin anything in is over when
+                    // it has nine hours left.
+                    endTime = jdToDate(endJD),
                     type = MuhuratType.INAUSPICIOUS
                 )
             }
