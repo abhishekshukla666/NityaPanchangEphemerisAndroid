@@ -58,6 +58,12 @@ class SwissEphWrapper(context: Context) {
 
     external fun calculateNakshatraEndTimeForJulianDay(startJD: Double): Double
 
+    /**
+     * When the nakshatra holding at [startJD] began. The mirror of the end search above, so
+     * Ganda Moola can state its start rather than the sunrise it was first noticed at.
+     */
+    external fun calculateNakshatraStartTimeForJulianDay(startJD: Double): Double
+
     external fun calculateMuhurats(sunriseJD: Double, sunsetJD: Double, weekday: Int): Map<String, Double>
 
     external fun calculateYogaEndTimeForJulianDay(startJD: Double): Double

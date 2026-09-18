@@ -250,6 +250,7 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
             lagnas = lagnas,
             bhadraKaal = computeBhadraKaal(sunriseJD, nextSunriseJD),
             panchakKaal = computePanchakKaal(sunriseJD, nextSunriseJD),
+            gandaMoolaKaal = computeGandaMoolaKaal(sunriseJD, nextSunriseJD),
             nakshatras = nakshatraPeriods,
             yogas = yogaPeriods,
             karanas = karanaPeriods,
@@ -268,6 +269,61 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
      * time before now". The window is reported whole, never trimmed to the panchang day that
      * found it.
      */
+    /**
+     * The Ganda Moola window touching this panchang day, if any.
+     *
+     * The same treatment Panchak gets, for the same reason: this is the Moon in one of six
+     * nakshatras, which is a period, and reading the nakshatra AT SUNRISE says nothing on a day
+     * where one of them begins in the evening. Jyeshtha begins at 19:53 on 17 September 2026 and
+     * the row was silent all evening.
+     *
+     * Consecutive Ganda Moola nakshatras are merged into one window. Three pairs are adjacent —
+     * Ashlesha into Magha, Jyeshtha into Mula, and Revati into Ashwini across the wrap — and a
+     * reader in the middle of that stretch is under one continuous caution, not two that happen
+     * to touch. Never more than two in a row, because no third Ganda Moola nakshatra follows any
+     * pair.
+     */
+    private fun computeGandaMoolaKaal(sunriseJD: Double, nextSunriseJD: Double): Muhurat? {
+        fun isGandaMoola(jd: Double) =
+            PanchaangHelper.isGandaMoola(wrapper.calculateNakshatraForJulianDay(jd))
+
+        val insideJD: Double
+        if (isGandaMoola(sunriseJD)) {
+            insideJD = sunriseJD
+        } else {
+            // Up to two more nakshatras can begin before the next sunrise.
+            var probeJD = wrapper.calculateNakshatraEndTimeForJulianDay(sunriseJD)
+            var found: Double? = null
+            repeat(2) {
+                if (found == null && probeJD < nextSunriseJD) {
+                    if (isGandaMoola(probeJD)) {
+                        found = probeJD
+                    } else {
+                        probeJD = wrapper.calculateNakshatraEndTimeForJulianDay(probeJD)
+                    }
+                }
+            }
+            insideJD = found ?: return null
+        }
+
+        var startJD = wrapper.calculateNakshatraStartTimeForJulianDay(insideJD)
+        if (isGandaMoola(startJD - 0.001)) {
+            startJD = wrapper.calculateNakshatraStartTimeForJulianDay(startJD - 0.001)
+        }
+        var endJD = wrapper.calculateNakshatraEndTimeForJulianDay(insideJD)
+        if (isGandaMoola(endJD + 0.001)) {
+            endJD = wrapper.calculateNakshatraEndTimeForJulianDay(endJD + 0.001)
+        }
+
+        return Muhurat(
+            id = "ganda_moola",
+            name = context.localized("ganda_moola", "Ganda Moola"),
+            startTime = jdToDate(startJD),
+            endTime = jdToDate(endJD),
+            type = MuhuratType.INAUSPICIOUS
+        )
+    }
+
     /**
      * The Panchak window touching this panchang day, if any.
      *

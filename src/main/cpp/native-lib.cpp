@@ -343,6 +343,32 @@ JNIEXPORT jdouble JNICALL Java_com_nityapanchangam_ephemeris_SwissEphWrapper_cal
     return refineCrossing(searchJD - step, searchJD, startingNakshatra, getNakshatra);
 }
 
+// The same search run backwards, for when a nakshatra BEGAN.
+//
+// Ganda Moola is the Moon in one of six nakshatras, so it is a period like the others on the
+// advisory card, and its start is a crossing rather than the sunrise of whichever day first
+// noticed it.
+JNIEXPORT jdouble JNICALL Java_com_nityapanchangam_ephemeris_SwissEphWrapper_calculateNakshatraStartTimeForJulianDay(JNIEnv *env, jobject thiz, jdouble startJD) {
+    auto getNakshatra = [](double jd) {
+        swe_set_sid_mode(SE_SIDM_LAHIRI, 0, 0);
+        double moonPosition[6];
+        char errorMessage[256];
+        swe_calc_ut(jd, SE_MOON, SEFLG_SWIEPH | SEFLG_SIDEREAL, moonPosition, errorMessage);
+        return (int)(moonPosition[0] / 13.333333) + 1;
+    };
+
+    int startingNakshatra = getNakshatra(startJD);
+    double step = 15.0 / (24.0 * 60.0);
+    double searchJD = startJD;
+    int searchNakshatra = startingNakshatra;
+    while (searchNakshatra == startingNakshatra) {
+        searchJD -= step;
+        searchNakshatra = getNakshatra(searchJD);
+        if (searchJD < startJD - 1.5) { return searchJD; }
+    }
+    return refineCrossing(searchJD + step, searchJD, startingNakshatra, getNakshatra);
+}
+
 JNIEXPORT jobject JNICALL Java_com_nityapanchangam_ephemeris_SwissEphWrapper_calculateMuhurats(JNIEnv *env, jobject thiz, jdouble sunriseJD, jdouble sunsetJD, jint weekday) {
     double dayDuration = sunsetJD - sunriseJD;
     double muhuratLength15 = dayDuration / 15.0;

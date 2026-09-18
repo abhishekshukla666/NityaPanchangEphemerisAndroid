@@ -190,6 +190,11 @@ data class PanchangDay(
      */
     val panchakKaal: Muhurat? = null,
     /**
+     * The Ganda Moola window touching this day — the Moon in one of the six nakshatras, with
+     * adjacent ones merged — or null on the days it does not.
+     */
+    val gandaMoolaKaal: Muhurat? = null,
+    /**
      * The Amanta name for this same day, a display-only parallel to [lunarMonth].
      *
      * Every internal rule -- festivals, Ekadashi, Samvat, Ritu -- keeps matching against the
