@@ -314,5 +314,13 @@ data class DailyPanchangSummary(
      * sighting the moon, and that is regularly a different day from the one Chaturthi reaches
      * at sunrise.
      */
-    val isSankashtiChaturthi: Boolean = false
+    val isSankashtiChaturthi: Boolean = false,
+    /**
+     * Whether a Vishti (Bhadra) karana touches this panchang day.
+     *
+     * Read from the karanas at this sunrise and the next rather than from the sunrise karana
+     * alone: a karana runs ten to thirteen hours against a twenty-four hour day, so about half
+     * of all Bhadras cover neither sunrise and a sunrise reading would miss them.
+     */
+    val hasBhadra: Boolean = false
 )

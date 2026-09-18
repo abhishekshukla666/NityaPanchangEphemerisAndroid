@@ -524,7 +524,13 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
                     lunarMonth = wrapper.calculatePurnimantaMonthForJulianDay(refJD),
                     isAdhikMaas = wrapper.calculateIsPurnimantaAdhikMaasForJulianDay(refJD),
                     isPradoshVrat = isPradoshVratDay,
-                    isSankashtiChaturthi = isSankashti
+                    isSankashtiChaturthi = isSankashti,
+                    // Two readings, not a scan: the karana at this sunrise and at the next
+                    // bound every karana the day touches — see PanchaangHelper.isVishti.
+                    hasBhadra = PanchaangHelper.isVishti(
+                        wrapper.calculateKaranaForJulianDay(refJD),
+                        wrapper.calculateKaranaForJulianDay(refJD + 1.0)
+                    )
                 )
             )
             cursor.add(Calendar.DAY_OF_YEAR, 1)

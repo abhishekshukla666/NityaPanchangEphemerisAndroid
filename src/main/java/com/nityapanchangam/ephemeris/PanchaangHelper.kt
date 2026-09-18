@@ -162,6 +162,37 @@ object PanchaangHelper {
         return context.localizedFormat("ekadashi_suffix", "%s Ekadashi", localizedName)
     }
 
+    /**
+     * Whether a karana number is Vishti, the one Bhadra is named for.
+     *
+     * Vishti sits at index 6 of the seven movable karanas, which run 2-57. The four fixed ones —
+     * 1, and 58 through 60 — can never be it, which the range check enforces.
+     */
+    fun isVishti(karanaNumber: Int): Boolean =
+        karanaNumber in 2..57 && (karanaNumber - 2) % 7 == 6
+
+    /**
+     * Whether any karana between two readings is Vishti — that is, whether Bhadra touches the
+     * span they bound.
+     *
+     * Exact rather than sampled, and it costs two ephemeris readings instead of a scan. The
+     * Moon-Sun elongation a karana is cut from only ever increases, so the karanas covering a
+     * span are precisely those from the one at its start to the one at its end.
+     *
+     * A day cannot be decided by its sunrise karana alone: a karana runs ten to thirteen hours
+     * against a twenty-four hour day, so about half of all Bhadras begin after one sunrise and
+     * end before the next, covering neither.
+     */
+    fun isVishti(first: Int, last: Int): Boolean {
+        var karana = first
+        repeat(60) {
+            if (isVishti(karana)) return true
+            if (karana == last) return false
+            karana = karana % 60 + 1
+        }
+        return false
+    }
+
     fun isGandaMoola(nakshatraNumber: Int): Boolean {
         return listOf(1, 9, 10, 18, 19, 27).contains(nakshatraNumber)
     }
