@@ -299,7 +299,24 @@ data class MonthDayTithis(
      * sighting the moon, and that is regularly a different day from the one Chaturthi reaches
      * at sunrise.
      */
-    val isSankashtiChaturthi: Boolean = false
+    val isSankashtiChaturthi: Boolean = false,
+    /**
+     * Whether this day falls inside an Adhik Maas.
+     *
+     * Carried per day rather than as a window because that is the shape the calendar
+     * consumes — it indexes this map by day-of-month and has no other per-day reading to hang
+     * a range test on.
+     *
+     * An Adhik Maas is a run of 29 or 30 consecutive days, so a caller that wants its first or
+     * last day finds it by comparing neighbours. The run always straddles two Gregorian
+     * months: measured over 2023–2031 not one of the four windows fits inside a single month,
+     * so a caller looking for the boundary has to reach past the month's own edges to find it.
+     *
+     * Read at sunrise, the same instant as [sunriseTithi], and through the Purnimanta rule
+     * [PanchangDay.isAdhikMaas] uses — the calendar's tint and the day sheet a tap opens are
+     * the same claim about the same day.
+     */
+    val isAdhikMaas: Boolean = false
 )
 
 data class DailyPanchangSummary(

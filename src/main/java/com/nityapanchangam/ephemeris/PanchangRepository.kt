@@ -469,7 +469,13 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
                 sunriseTithi = tithi,
                 lostTithi = skipped.firstOrNull { it == 15 || it == 30 } ?: skipped.firstOrNull() ?: 0,
                 isPradoshVrat = isPradoshDay(overlap[day + 1], overlap[day], overlap[day + 2]),
-                isSankashtiChaturthi = isSankashti
+                isSankashtiChaturthi = isSankashti,
+                // The Purnimanta predicate, matching PanchangDay.isAdhikMaas rather than the
+                // Amanta call sitting under a near-identical name. The two agree on every day
+                // between 2000 and 2060, so this is about what the field means, not what it
+                // returns. On the sunrise already gathered above: one wrapper call a day, no
+                // new sun calculation.
+                isAdhikMaas = wrapper.calculateIsPurnimantaAdhikMaasForJulianDay(sunrises[day])
             )
         }
         results
