@@ -145,22 +145,46 @@ object PanchaangHelper {
         return result.sortedBy { it.id }
     }
 
-    fun getEkadashiName(context: Context, lunarMonth: Int, paksha: Paksha, isAdhik: Boolean = false): String {
-        val shukla = listOf(
-            "Kamada", "Mohini", "Nirjala", "Devshayani", "Putrada", "Parsva",
-            "Pasankusha", "Devutthana", "Mokshada", "Putrada", "Jaya", "Amalaki"
-        )
-        val krishna = listOf(
-            "Papamochani", "Varuthini", "Apara", "Yogini", "Kamika", "Aja",
-            "Indira", "Rama", "Utpanna", "Saphala", "Shattila", "Vijaya"
-        )
-        val baseName = if (isAdhik) "Padmini" else {
-            val idx = (lunarMonth - 1) % 12
-            if (paksha == Paksha.SHUKLA) shukla[idx] else krishna[idx]
-        }
-        val localizedName = getFestivalName(context, baseName)
-        return context.localizedFormat("ekadashi_suffix", "%s Ekadashi", localizedName)
+    /**
+     * The twenty-four Ekadashis, by Purnimanta month.
+     *
+     * Whole names rather than a stem plus " Ekadashi". Two of them need a month in front --
+     * there is a Putrada Ekadashi in Shravana and another in Pausha, and a bare "Putrada
+     * Ekadashi" cannot tell a reader which one is in front of them -- so the composition never
+     * held anyway. Dropping it also means one resource id per Ekadashi rather than a stem id
+     * and a suffix, and the id is the same one the festival rules ask for.
+     *
+     * These are also the only source of the twenty-four Ekadashi festival rules;
+     * ekadashiFestivalRules builds them from here. The two used to be written out separately
+     * and had drifted apart on four of the twenty-four, so the calendar and the Quick Lookup
+     * tile named the same day differently.
+     *
+     * Index is `lunarMonth - 1`, Chaitra first. Kept identical to iOS's PanchaangHelper.
+     */
+    val shuklaEkadashiNames = listOf(
+        "Kamada Ekadashi", "Mohini Ekadashi", "Nirjala Ekadashi", "Devshayani Ekadashi",
+        "Shravana Putrada Ekadashi", "Parivartini Ekadashi", "Papankusha Ekadashi",
+        "Devutthana Ekadashi", "Mokshada Ekadashi", "Pausha Putrada Ekadashi",
+        "Jaya Ekadashi", "Amalaki Ekadashi"
+    )
+
+    val krishnaEkadashiNames = listOf(
+        "Papamochani Ekadashi", "Varuthini Ekadashi", "Apara Ekadashi", "Yogini Ekadashi",
+        "Kamika Ekadashi", "Aja Ekadashi", "Indira Ekadashi", "Rama Ekadashi",
+        "Utpanna Ekadashi", "Saphala Ekadashi", "Shattila Ekadashi", "Vijaya Ekadashi"
+    )
+
+    /** The English name, which is also the resource id's source. */
+    fun ekadashiName(lunarMonth: Int, paksha: Paksha, isAdhik: Boolean = false): String {
+        // An Adhik month repeats a month number, so the table above would name the Ekadashi of
+        // the ordinary month of the same number. Both of an Adhik month's Ekadashis are Padmini.
+        if (isAdhik) return "Padmini Ekadashi"
+        val idx = (lunarMonth - 1) % 12
+        return if (paksha == Paksha.SHUKLA) shuklaEkadashiNames[idx] else krishnaEkadashiNames[idx]
     }
+
+    fun getEkadashiName(context: Context, lunarMonth: Int, paksha: Paksha, isAdhik: Boolean = false): String =
+        getFestivalName(context, ekadashiName(lunarMonth, paksha, isAdhik))
 
     /**
      * Whether a karana number is Vishti, the one Bhadra is named for.

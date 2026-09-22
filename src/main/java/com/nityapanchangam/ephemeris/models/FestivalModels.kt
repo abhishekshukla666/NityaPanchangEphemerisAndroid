@@ -1,5 +1,6 @@
 package com.nityapanchangam.ephemeris.models
 
+import com.nityapanchangam.ephemeris.PanchaangHelper
 import java.util.Calendar
 import java.util.Date
 
@@ -205,7 +206,30 @@ val regionalFestivalRules: List<FestivalRule> = listOf(
  * Kept as a join rather than by pasting the regional days into the main table, so "which of
  * these is regional" stays answerable by reading one list.
  */
-val allFestivalRules: List<FestivalRule> get() = panIndianFestivalRules + regionalFestivalRules
+val allFestivalRules: List<FestivalRule>
+    get() = panIndianFestivalRules + regionalFestivalRules + ekadashiFestivalRules
+
+/**
+ * The twenty-four Ekadashis, built from the one table that names them.
+ *
+ * They used to be written out here as well as in PanchaangHelper, and the two copies had
+ * drifted on four of the twenty-four -- so the calendar named a day one thing and the Quick
+ * Lookup tile, which asks the helper, named it another. Nothing could catch that: both
+ * spellings were real Ekadashi names and both had strings, so every lint passed while the app
+ * contradicted itself twice a year.
+ *
+ * Every one of them was identical but for the name -- same emoji, no region, no observation
+ * time of its own -- so there was nothing in the hand-written list worth keeping.
+ *
+ * Krishna Ekadashi is tithi 11 and Shukla 26, the app's numbering running Krishna first from
+ * Pratipada to Amavasya at 15. Kept identical to iOS's ekadashiFestivalRules.
+ */
+val ekadashiFestivalRules: List<FestivalRule> = (1..12).flatMap { month ->
+    listOf(
+        FestivalRule(PanchaangHelper.ekadashiName(month, Paksha.KRISHNA), month, 11, "🛕"),
+        FestivalRule(PanchaangHelper.ekadashiName(month, Paksha.SHUKLA), month, 26, "🛕")
+    )
+}
 
 val panIndianFestivalRules: List<FestivalRule> = listOf(
 
@@ -330,61 +354,11 @@ val panIndianFestivalRules: List<FestivalRule> = listOf(
     FestivalRule("Magha Purnima", 11, 30, "🌝"),
 
     // Phalguna (12)
-    FestivalRule("Maha Shivratri", 12, 14, "lordshiv", ObservationTime.MIDNIGHT, hasIcon = true),
+    FestivalRule("Maha Shivratri", 12, 14, "lordshiv", ObservationTime.MIDNIGHT, hasIcon = true)
     // Holika Dahan and Holi are NOT in this table. Neither can be expressed as "a tithi
     // prevails at an instant": Holika Dahan is the Purnima Pradosh unless Bhadra runs past
     // midnight, in which case it defers a day, and Holi is simply the day after whichever
     // day that lands on. See PanchangRepository.holiFestivals.
-
-    // The 24 Ekadashis
-
-    // 1. Chaitra
-    FestivalRule("Papmochani Ekadashi", 1, 11, "🛕"),
-    FestivalRule("Kamada Ekadashi", 1, 26, "🛕"),
-
-    // 2. Vaishakha
-    FestivalRule("Varuthini Ekadashi", 2, 11, "🛕"),
-    FestivalRule("Mohini Ekadashi", 2, 26, "🛕"),
-
-    // 3. Jyeshtha
-    FestivalRule("Apara Ekadashi", 3, 11, "🛕"),
-    FestivalRule("Nirjala Ekadashi", 3, 26, "🛕"),
-
-    // 4. Ashadha
-    FestivalRule("Yogini Ekadashi", 4, 11, "🛕"),
-    FestivalRule("Devshayani Ekadashi", 4, 26, "🛕"),
-
-    // 5. Shravana
-    FestivalRule("Kamika Ekadashi", 5, 11, "🛕"),
-    FestivalRule("Shravana Putrada Ekadashi", 5, 26, "🛕"),
-
-    // 6. Bhadrapada
-    FestivalRule("Aja Ekadashi", 6, 11, "🛕"),
-    FestivalRule("Parsva Ekadashi", 6, 26, "🛕"),
-
-    // 7. Ashwina
-    FestivalRule("Indira Ekadashi", 7, 11, "🛕"),
-    FestivalRule("Papankusha Ekadashi", 7, 26, "🛕"),
-
-    // 8. Kartika
-    FestivalRule("Rama Ekadashi", 8, 11, "🛕"),
-    FestivalRule("Devutthana Ekadashi", 8, 26, "🛕"),
-
-    // 9. Margashirsha
-    FestivalRule("Utpanna Ekadashi", 9, 11, "🛕"),
-    FestivalRule("Mokshada Ekadashi", 9, 26, "🛕"),
-
-    // 10. Pausha
-    FestivalRule("Saphala Ekadashi", 10, 11, "🛕"),
-    FestivalRule("Pausha Putrada Ekadashi", 10, 26, "🛕"),
-
-    // 11. Magha
-    FestivalRule("Shattila Ekadashi", 11, 11, "🛕"),
-    FestivalRule("Jaya Ekadashi", 11, 26, "🛕"),
-
-    // 12. Phalguna
-    FestivalRule("Vijaya Ekadashi", 12, 11, "🛕"),
-    FestivalRule("Amalaki Ekadashi", 12, 26, "🛕")
 )
 
 // National holidays and universally observed fixed-date festivals for India.
