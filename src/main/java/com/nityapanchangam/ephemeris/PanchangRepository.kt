@@ -60,6 +60,9 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
          *  of a pure function whose cost is one ephemeris call to refill. */
         private const val MAX_SUNRISE_CACHE = 2000
 
+        /** Four ghatis, as a fraction of a day. */
+        private const val ARUNODAYA_GHATIS = 96.0 / 1440.0
+
         const val REFERENCE_LATITUDE = 23.1765
         const val REFERENCE_LONGITUDE = 75.7885
     }
@@ -544,7 +547,13 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
         results
     }
 
-    suspend fun fetchFestivals(startDate: Date, endDate: Date, latitude: Double, longitude: Double): List<HinduFestival> = ephemerisCall {
+    suspend fun fetchFestivals(
+        startDate: Date,
+        endDate: Date,
+        latitude: Double,
+        longitude: Double,
+        tradition: EkadashiTradition = EkadashiTradition.DEFAULT
+    ): List<HinduFestival> = ephemerisCall {
         val calendar = Calendar.getInstance()
         val festivals = mutableListOf<HinduFestival>()
         val seen = mutableSetOf<String>()
@@ -689,22 +698,55 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
                     // belongs to that second day, not this first one — today is the
                     // Dashami-viddha side. Everything else keeps the first sunrise its tithi
                     // touches, which is what the `seen` set already gives it.
+                    // Which day the vrat is kept on. Everything but an Ekadashi keeps the
+                    // first sunrise its tithi touches, which is what `seen` already gives it.
+                    var observed = current
                     if (rule.resolvesForward && rule.tithiUpperBound == null &&
-                        rule.observationTime == ObservationTime.SUNRISE) {
-                        val tomorrow = Calendar.getInstance().apply {
+                        rule.observationTime == ObservationTime.SUNRISE &&
+                        (isVriddhi(current, rule.tithiNumber) ||
+                            (tradition == EkadashiTradition.VAISHNAVA &&
+                                isDashamiAtArunodaya(current, rule.tithiNumber)))
+                    ) {
+                        observed = Calendar.getInstance().apply {
                             time = current; add(Calendar.DAY_OF_YEAR, 1)
                         }.time
-                        if (wrapper.calculateTithiNumberForJulianDay(referenceSunriseJD(tomorrow))
-                            == rule.tithiNumber
-                        ) continue
                     }
 
                     val key = "${rule.name}-$calYear"
                     if (seen.add(key)) {
                         festivals.add(
-                            HinduFestival(rule.name, current, rule.emoji, rule.hasIcon, rule.regions)
+                            HinduFestival(rule.name, observed, rule.emoji, rule.hasIcon, rule.regions)
                         )
                     }
+                }
+            }
+
+            // An Adhik month's Ekadashis, which no rule in the table above can reach. Every
+            // rule matches on a month NUMBER, and an Adhik month repeats the ordinary month's
+            // — so a rule firing here would spend the year's Nirjala a month early and leave
+            // the real one unnamed. The `anchor.isAdhik` guard exists to stop exactly that,
+            // and takes the Ekadashis with it.
+            //
+            // They are not skipped observances. Both of an Adhik month's Ekadashis are kept
+            // and both are Padmini, the one Ekadashi name belonging to no month. Without this
+            // the calendar, the festival ribbon and the share text showed nothing at all for
+            // a whole month, roughly once every thirty-three.
+            if (isAdhikSunrise && (tithiSunrise == 11 || tithiSunrise == 26)) {
+                var observed = current
+                if (isVriddhi(current, tithiSunrise) ||
+                    (tradition == EkadashiTradition.VAISHNAVA &&
+                        isDashamiAtArunodaya(current, tithiSunrise))
+                ) {
+                    observed = Calendar.getInstance().apply {
+                        time = current; add(Calendar.DAY_OF_YEAR, 1)
+                    }.time
+                }
+                // Keyed on the tithi as well as the year: an Adhik month has two Ekadashis,
+                // one per paksha, and both carry this name. A name-and-year key would emit
+                // the first and swallow the second.
+                val padminiKey = "Padmini Ekadashi-$tithiSunrise-$calYear"
+                if (seen.add(padminiKey)) {
+                    festivals.add(HinduFestival("Padmini Ekadashi", observed, "🛕", false))
                 }
             }
 
@@ -1111,6 +1153,32 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
      * Falls back to the old proxy only where sunrise genuinely does not occur, matching
      * fetchDailySummaries: a scan must still yield a row above the Arctic circle.
      */
+    /**
+     * Whether the tithi holds tomorrow's sunrise too.
+     *
+     * A vriddhi Ekadashi moves to its second day under BOTH traditions, not only for
+     * Vaishnavas — four published observances say so, and the Swift suite pins all four. That
+     * is what separates it from [isDashamiAtArunodaya], which is the part the two traditions
+     * actually disagree about.
+     */
+    private fun isVriddhi(dayStart: Date, tithi: Int): Boolean {
+        val tomorrow = Calendar.getInstance().apply {
+            time = dayStart; add(Calendar.DAY_OF_YEAR, 1)
+        }.time
+        return wrapper.calculateTithiNumberForJulianDay(referenceSunriseJD(tomorrow)) == tithi
+    }
+
+    /**
+     * Whether Dashami was still running four ghatis before sunrise.
+     *
+     * Ninety-six minutes is the figure most often given; forty-eight is also used, and which
+     * is chosen changes roughly one date a year.
+     */
+    private fun isDashamiAtArunodaya(dayStart: Date, tithi: Int): Boolean {
+        val arunodaya = referenceSunriseJD(dayStart) - ARUNODAYA_GHATIS
+        return wrapper.calculateTithiNumberForJulianDay(arunodaya) != tithi
+    }
+
     private fun referenceSunriseJD(dayStart: Date): Double {
         val jd = dateToJD(dayStart)
         // Memoised because this replaced a free constant, and both the festival scan and the

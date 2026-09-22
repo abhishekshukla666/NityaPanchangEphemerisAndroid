@@ -206,6 +206,38 @@ val regionalFestivalRules: List<FestivalRule> = listOf(
  * Kept as a join rather than by pasting the regional days into the main table, so "which of
  * these is regional" stays answerable by reading one list.
  */
+/**
+ * Which tradition's rule decides the day an Ekadashi vrat is kept on.
+ *
+ * Narrower than it first looks. A *vriddhi* Ekadashi — one whose tithi holds two consecutive
+ * sunrises — moves to its second day under both traditions, which four published observances
+ * confirm: Amalaki 2023, Nirjala 2024, Rama 2024 and Vijaya 2027. What separates them is the
+ * other test:
+ *
+ *  - **Dashami at arunodaya.** The Ekadashi began inside the last four ghatis before sunrise —
+ *    ninety-six minutes — so Dashami was still running at the hour the vrat's day is reckoned
+ *    to start. A Vaishnava's fast moves to the following day; a Smarta householder keeps this
+ *    one.
+ *
+ * Measured over 2026–2028 the two differ on a single date, Aja Ekadashi 2028. Nothing else in
+ * the app depends on this: it changes one date, and every surface that draws a festival follows.
+ *
+ * Kept identical to iOS's EkadashiTradition.
+ */
+enum class EkadashiTradition {
+    /** The householder rule: the day is kept even when Dashami touched its arunodaya. */
+    SMARTA,
+
+    /** Never on a day Dashami reached arunodaya; the fast moves to the following one. */
+    VAISHNAVA;
+
+    companion object {
+        /** Smarta. The householder practice is the commoner one, and it is what a printed
+         *  panchang leads with. */
+        val DEFAULT = SMARTA
+    }
+}
+
 val allFestivalRules: List<FestivalRule>
     get() = panIndianFestivalRules + regionalFestivalRules + ekadashiFestivalRules
 
