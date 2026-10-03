@@ -547,6 +547,10 @@ JNIEXPORT jdoubleArray JNICALL Java_com_nityapanchangam_ephemeris_SwissEphWrappe
         resultData.push_back((double)rashi);
         resultData.push_back(deg);
         resultData.push_back(pos[3] < 0 ? 1.0 : 0.0);
+        // The magnitude as well as the sign. Cheshta Bala grades a graha on how fast it is
+        // moving against its own mean motion, so the number the retrograde test above
+        // reduces to a boolean is the number that reading needs.
+        resultData.push_back(pos[3]);
     }
 
     double rahuPos[6];
@@ -564,6 +568,7 @@ JNIEXPORT jdoubleArray JNICALL Java_com_nityapanchangam_ephemeris_SwissEphWrappe
     resultData.push_back((double)rahuRashi);
     resultData.push_back(std::fmod(rahuLon, 30.0));
     resultData.push_back(rahuRetrograde);
+    resultData.push_back(rahuPos[3]);
 
     double ketuLon = std::fmod(rahuLon + 180.0, 360.0);
     int ketuRashi = (int)(ketuLon / 30.0) + 1;
@@ -571,8 +576,10 @@ JNIEXPORT jdoubleArray JNICALL Java_com_nityapanchangam_ephemeris_SwissEphWrappe
     resultData.push_back(ketuLon);
     resultData.push_back((double)ketuRashi);
     resultData.push_back(std::fmod(ketuLon, 30.0));
-    // Ketu is Rahu's opposite point, so it shares Rahu's direction.
+    // Ketu is Rahu's opposite point, so it shares Rahu's direction -- and its speed, not the
+    // negation of it: both nodes regress together.
     resultData.push_back(rahuRetrograde);
+    resultData.push_back(rahuPos[3]);
 
     jdoubleArray result = env->NewDoubleArray(resultData.size());
     env->SetDoubleArrayRegion(result, 0, resultData.size(), resultData.data());
@@ -585,7 +592,7 @@ JNIEXPORT jdoubleArray JNICALL Java_com_nityapanchangam_ephemeris_SwissEphWrappe
 // lord, a sign lordship, a hora, a combustion orb. Three more bodies quietly appearing in it
 // would be found by all of that rather than only by the screens meant to show them.
 //
-// Same five-double stride as the Navagraha call, with planet indices 9, 10 and 11, so
+// Same six-double stride as the Navagraha call, with planet indices 9, 10 and 11, so
 // PanchaangHelper.buildPlanetPositions reads either array unchanged.
 JNIEXPORT jdoubleArray JNICALL Java_com_nityapanchangam_ephemeris_SwissEphWrapper_calculateOuterPlanetPositionsForJulianDay(JNIEnv *env, jobject thiz, jdouble jd) {
     swe_set_sid_mode(SE_SIDM_LAHIRI, 0, 0);
@@ -608,6 +615,39 @@ JNIEXPORT jdoubleArray JNICALL Java_com_nityapanchangam_ephemeris_SwissEphWrappe
         // All three are retrograde for roughly five months of every year, which is most of
         // what there is to say about their motion.
         resultData.push_back(pos[3] < 0 ? 1.0 : 0.0);
+        resultData.push_back(pos[3]);
+    }
+
+    jdoubleArray result = env->NewDoubleArray(resultData.size());
+    env->SetDoubleArrayRegion(result, 0, resultData.size(), resultData.data());
+    return result;
+}
+
+// Declination (kranti) for the seven classical grahas, in planet-id order 0-6. North positive.
+//
+// Its own call rather than more values on the position array, for the reason the outer planets
+// have their own: that array is built for every panchang day and this needs a second ephemeris
+// pass per graha. Only Ayana Bala wants it, and a birth chart asks once.
+//
+// SEFLG_EQUATORIAL swaps the returned frame -- pos[0] becomes right ascension and pos[1] the
+// declination. NOT combined with SEFLG_SIDEREAL: declination is measured from the celestial
+// equator, which the ayanamsa does not move, so asking for both is a contradiction rather than
+// a refinement. Reading it from the ephemeris also beats deriving it from the longitude already
+// in hand, where sin(decl) = sin(obliquity) x sin(longitude) assumes the body sits exactly on
+// the ecliptic and the Moon can be five degrees off it.
+JNIEXPORT jdoubleArray JNICALL Java_com_nityapanchangam_ephemeris_SwissEphWrapper_calculateDeclinationsForJulianDay(JNIEnv *env, jobject thiz, jdouble jd) {
+    long flags = SEFLG_SWIEPH | SEFLG_EQUATORIAL;
+    char errorMessage[256];
+    std::vector<double> resultData;
+    int seIds[7] = { SE_SUN, SE_MOON, SE_MARS, SE_MERCURY, SE_JUPITER, SE_VENUS, SE_SATURN };
+
+    for (int i = 0; i < 7; i++) {
+        double pos[6];
+        if (swe_calc_ut(jd, seIds[i], flags, pos, errorMessage) < 0) {
+            resultData.push_back(0.0);
+            continue;
+        }
+        resultData.push_back(pos[1]);
     }
 
     jdoubleArray result = env->NewDoubleArray(resultData.size());

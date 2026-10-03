@@ -1406,6 +1406,20 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
         )
     }
 
+    /**
+     * Declination (kranti) for the seven classical grahas at [date], keyed by planet id,
+     * north positive.
+     *
+     * Separate from [fetchPlanetPositions] because it costs a second ephemeris pass per graha
+     * and only Ayana Bala wants it — a birth chart asks once, where a panchang day would have
+     * paid for it daily.
+     */
+    suspend fun fetchDeclinations(date: Date): Map<Int, Double> = ephemerisCall {
+        wrapper.calculateDeclinationsForJulianDay(dateToJD(date))
+            .mapIndexed { id, value -> id to value }
+            .toMap()
+    }
+
     suspend fun fetchBirthChart(date: Date, latitude: Double, longitude: Double): BirthChart = ephemerisCall {
         val jd = dateToJD(date)
 

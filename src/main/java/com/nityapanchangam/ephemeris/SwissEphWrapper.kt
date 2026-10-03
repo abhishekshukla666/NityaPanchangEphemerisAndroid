@@ -111,6 +111,15 @@ class SwissEphWrapper(context: Context) {
      */
     external fun calculateOuterPlanetPositionsForJulianDay(jd: Double): DoubleArray
 
+    /**
+     * Declination (kranti) in degrees for the seven classical grahas, in planet-id order 0-6.
+     * North is positive. Seven doubles, not the position array's stride.
+     *
+     * Its own call because it costs a second ephemeris pass per graha and only Ayana Bala
+     * wants it — see the note in native-lib.cpp.
+     */
+    external fun calculateDeclinationsForJulianDay(jd: Double): DoubleArray
+
     external fun calculateAscendantAtJD(jd: Double, latitude: Double, longitude: Double): Double
 
     external fun nextSolarEclipseVisible(jd: Double, latitude: Double, longitude: Double, maxDaysAhead: Double): Map<String, Double>?

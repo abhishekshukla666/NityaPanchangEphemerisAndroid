@@ -65,7 +65,18 @@ data class PlanetPosition(
      * Defaulted so existing callers keep compiling; the ephemeris fills it from the body's
      * computed daily motion. The Sun and Moon are never retrograde; Rahu and Ketu always are.
      */
-    val isRetrograde: Boolean = false
+    val isRetrograde: Boolean = false,
+    /**
+     * Daily motion in longitude, degrees per day, signed. Negative is Vakri — [isRetrograde]
+     * is this value's sign, kept separately because most callers only want the flag.
+     *
+     * **Nullable on purpose, rather than defaulting to zero.** Zero is a real reading: a graha
+     * at a station genuinely has no motion, and Cheshta Bala gives it a specific strength for
+     * exactly that. A fixture built without this field would then be indistinguishable from one
+     * describing a stationary planet, and Shadbala would answer confidently from a number nobody
+     * supplied. Null says "not known", so a calculator that needs it can decline instead.
+     */
+    val speed: Double? = null
 )
 
 /** Computed chart used for marriage matching (Guna Milan) and Kundli charts. */
