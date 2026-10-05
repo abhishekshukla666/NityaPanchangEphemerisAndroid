@@ -1493,6 +1493,7 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
                 LimbPeriod(
                     id = periods.size,
                     name = name(valueAt(startJD)),
+                    number = valueAt(startJD),
                     startTime = jdToDate(startJD),
                     endTime = jdToDate(endJD)
                 )

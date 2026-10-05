@@ -113,7 +113,21 @@ data class LagnaPeriod(
     val rashiSymbol: String,
     val isDay: Boolean,
     val startTime: Date,
-    val endTime: Date
+    val endTime: Date,
+    /**
+     * The limb's number — 1-27 for a nakshatra, 1-27 for a yoga, and so on.
+     *
+     * Here because [name] is LOCALIZED, so anything matching a rule table against
+     * it works in English and silently fails everywhere else. The iOS twin can
+     * match on its names because they stay untranslated English keys; this one
+     * cannot, and a rule keyed by number is the same rule in six languages.
+     *
+     * LAST, and defaulted, on purpose. Placed after [name] — where it reads more
+     * naturally — it displaced startTime and endTime for every POSITIONAL caller,
+     * and a Date bound silently to an Int parameter. A new field on a data class
+     * goes at the end, or it is a source break dressed up as an addition.
+     */
+    val number: Int = 0
 ) {
     val isActive: Boolean get() {
         val now = Date()
@@ -159,7 +173,21 @@ data class LimbPeriod(
     /** The limb's name, already localized the same way the Udaya reading's is. */
     val name: String,
     val startTime: Date,
-    val endTime: Date
+    val endTime: Date,
+    /**
+     * The limb's number - 1-27 for a nakshatra, 1-27 for a yoga, and so on.
+     *
+     * Here because [name] is LOCALIZED, so anything matching a rule table against
+     * it works in English and silently fails everywhere else. The iOS twin can
+     * match on its names because they stay untranslated English keys; this one
+     * cannot, and a rule keyed by number is the same rule in six languages.
+     *
+     * LAST, and defaulted, on purpose. Placed after [name] - where it reads more
+     * naturally - it displaced startTime and endTime for every POSITIONAL caller,
+     * and a Date bound silently to an Int parameter. A new field on a data class
+     * goes at the end, or it is a source break dressed up as an addition.
+     */
+    val number: Int = 0
 ) {
     operator fun contains(date: Date): Boolean = date >= startTime && date < endTime
 
