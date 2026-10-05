@@ -229,6 +229,9 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
             isAdhikMaas = isAdhik,
             sunrise = jdToDate(sunriseJD),
             sunset = jdToDate(sunsetJD),
+            // Computed well above for the Pradosh window and the night segments;
+            // it simply never left this function before.
+            nextSunrise = jdToDate(nextSunriseJD),
             moonrise = moonrise,
             moonset = moonset,
             tithi = Tithi(PanchaangHelper.getTithiName(context, tithiNum), tithiEnd, if (tithiNum <= 15) Paksha.KRISHNA else Paksha.SHUKLA),

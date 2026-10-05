@@ -175,6 +175,19 @@ data class PanchangDay(
     val isAdhikMaas: Boolean,
     val sunrise: Date,
     val sunset: Date,
+    /**
+     * The following day's sunrise — the end of THIS panchang day.
+     *
+     * A Vedic day runs sunrise to sunrise, so this is the boundary every limb list
+     * below is scoped by, and the only way a caller can clip a period to the day it
+     * belongs to. The limb lists are bounded by it at the START but not at the end:
+     * a nakshatra beginning at 02:19 is listed on this day and carries its own
+     * natural end, which may be well past tomorrow's dawn.
+     *
+     * Nullable only so that fixtures predating it keep compiling. The ephemeris
+     * always fills it; it was computed here all along and simply never surfaced.
+     */
+    val nextSunrise: Date? = null,
     val moonrise: Date?,
     val moonset: Date?,
     val tithi: Tithi,
