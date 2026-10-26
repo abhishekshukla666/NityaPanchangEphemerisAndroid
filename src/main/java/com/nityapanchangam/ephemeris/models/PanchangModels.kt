@@ -403,5 +403,20 @@ data class DailyPanchangSummary(
      * alone: a karana runs ten to thirteen hours against a twenty-four hour day, so about half
      * of all Bhadras cover neither sunrise and a sunrise reading would miss them.
      */
-    val hasBhadra: Boolean = false
+    val hasBhadra: Boolean = false,
+    /**
+     * The Amanta month number, 1-12, for this same sunrise — the parallel to [lunarMonth],
+     * which is Purnimanta. The two agree in a Shukla paksha and differ by one in a Krishna
+     * paksha, where Purnimanta has already moved on.
+     *
+     * Zero when not computed, which is what a fixture built before this existed gets.
+     */
+    val amantaMonth: Int = 0,
+    /**
+     * The Amanta reading of Adhik Maas, which pairs with [amantaMonth] the way [isAdhikMaas]
+     * (the Purnimanta reading) pairs with [lunarMonth]. The two windows are the same Adhik
+     * month seen from different boundaries, and differ only in the fortnights between an
+     * Amavasya and the following Purnima.
+     */
+    val isAmantaAdhikMaas: Boolean = false
 )

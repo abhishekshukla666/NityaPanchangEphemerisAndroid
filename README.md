@@ -61,6 +61,17 @@ class PanchangRepository(context: Context, wrapper: SwissEphWrapper) {
 }
 ```
 
+For a food or wellness app, one call gives the season and the sacred calendar for a day: the
+Ritu (shifted six months south of the equator), the month in the reader's Amanta or
+Purnimanta system, whether it is Chaturmas, whether it is an Ekadashi or Navratri, and
+whether the Ritu is turning (Ritu Sandhi). Its dates are the festival list's own, and its
+answers match the iOS package's `fetchSeasonalDay`.
+
+```kotlin
+val day = repository.fetchSeasonalDay(Date(), lat, lon, LunarMonthSystem.AMANTA, EkadashiTradition.SMARTA)
+// SeasonalDay(ritu=SHARAD, lunarMonth=7, isAdhikMaas=false, isChaturmas=true, vrat=null, isRituSandhi=false)
+```
+
 ### Localization
 
 Unlike the iOS package (which is English-only and leaves translation to the host app), this

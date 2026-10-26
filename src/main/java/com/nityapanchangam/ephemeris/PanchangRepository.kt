@@ -542,7 +542,9 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
                     hasBhadra = PanchaangHelper.isVishti(
                         wrapper.calculateKaranaForJulianDay(refJD),
                         wrapper.calculateKaranaForJulianDay(refJD + 1.0)
-                    )
+                    ),
+                    amantaMonth = wrapper.calculateAmantaMonthForJulianDay(refJD),
+                    isAmantaAdhikMaas = wrapper.calculateIsAdhikMaasForJulianDay(refJD)
                 )
             )
             cursor.add(Calendar.DAY_OF_YEAR, 1)
