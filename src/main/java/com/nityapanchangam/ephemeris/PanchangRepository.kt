@@ -189,10 +189,10 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
             next = pradoshOverlapOn(jdDayStart + 1.0, latitude, longitude)
         )
 
-        val nightIdx = listOf(5, 1, 4, 0, 3, 6, 2)[weekday - 1]
         val nightSegLen = max(nextSunriseJD - sunsetJD, 1.0 / 1440.0) / 8.0
+        val nightOrder = nightChaughariyaOrder(weekday)
         val nightChaughariya = (0 until 8).map { i ->
-            val nameIdx = (nightIdx + i) % 7
+            val nameIdx = nightOrder[i]
             Muhurat("$i", chaughariyaNames[nameIdx], jdToDate(sunsetJD + i * nightSegLen), jdToDate(sunsetJD + (i + 1) * nightSegLen), chaughariyaTypes[nameIdx])
         }
 
@@ -1686,4 +1686,17 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
             magnitude = if (umbral > 0) umbral else penumbral
         )
     }
+}
+
+/**
+ * Indices into the Choghadiya names (Udveg, Char, Labh, Amrit, Kaal, Shubh, Rog) for the eight
+ * periods of a night, for a weekday 1 (Sunday) to 7.
+ *
+ * The night does not run in the day's order. Each period is the one five places on -- two back --
+ * so a Sunday night reads Shubh, Amrit, Char, Rog, Kaal, Labh, Udveg, Shubh. Stepping one at a
+ * time, as the day does, put Rog and Kaal where Labh and Amrit belong. Matches iOS.
+ */
+internal fun nightChaughariyaOrder(weekday: Int): List<Int> {
+    val start = listOf(5, 1, 4, 0, 3, 6, 2)[weekday - 1]
+    return (0 until 8).map { i -> (start + 5 * i) % 7 }
 }
