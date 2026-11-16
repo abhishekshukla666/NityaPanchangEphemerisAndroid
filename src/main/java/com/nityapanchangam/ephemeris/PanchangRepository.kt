@@ -737,18 +737,21 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
             // the real one unnamed. The `anchor.isAdhik` guard exists to stop exactly that,
             // and takes the Ekadashis with it.
             //
-            // They are not skipped observances. Both of an Adhik month's Ekadashis are kept
-            // and both are Padmini, the one Ekadashi name belonging to no month. Without this
+            // They are not skipped observances. Both of an Adhik month's Ekadashis are kept, under
+            // the two names that belong to no month -- Padmini in the Shukla paksha, Parama in the
+            // Krishna. Without this
             // the calendar, the festival ribbon and the share text showed nothing at all for
             // a whole month, roughly once every thirty-three.
             if (isAdhikSunrise && (tithiSunrise == 11 || tithiSunrise == 26)) {
-                // Keyed on the tithi as well as the lunation: an Adhik month has two Ekadashis,
-                // one per paksha, both carrying this name and both inside one lunation.
-                val padminiKey = "Padmini Ekadashi-$tithiSunrise-L${EkadashiDay.lunation(jdSunrise)}"
-                if (seen.add(padminiKey)) {
+                val name = PanchaangHelper.ekadashiName(
+                    monthSunrise, if (tithiSunrise == 26) Paksha.SHUKLA else Paksha.KRISHNA, isAdhik = true)
+                // Keyed on the tithi as well as the lunation: an Adhik month's two Ekadashis sit
+                // inside one lunation.
+                val adhikKey = "$name-$tithiSunrise-L${EkadashiDay.lunation(jdSunrise)}"
+                if (seen.add(adhikKey)) {
                     // Dated by the same rules as every other Ekadashi.
                     for ((observed, tradition) in ekadashiDays(current, tithiSunrise, ekadashis)) {
-                        festivals.add(HinduFestival("Padmini Ekadashi", observed, "🛕", false, tradition = tradition))
+                        festivals.add(HinduFestival(name, observed, "🛕", false, tradition = tradition))
                     }
                 }
             }

@@ -179,8 +179,11 @@ object PanchaangHelper {
     /** The English name, which is also the resource id's source. */
     fun ekadashiName(lunarMonth: Int, paksha: Paksha, isAdhik: Boolean = false): String {
         // An Adhik month repeats a month number, so the table above would name the Ekadashi of
-        // the ordinary month of the same number. Both of an Adhik month's Ekadashis are Padmini.
-        if (isAdhik) return "Padmini Ekadashi"
+        // the ordinary month of the same number. An Adhik month's Ekadashis have their own two
+        // names: Padmini in the Shukla paksha and Parama in the Krishna, as Drik Panchang's Smartha
+        // and ISKCON lists both publish them -- 27 May and 11 June 2026. This said Padmini for both
+        // until 1.0.59.
+        if (isAdhik) return if (paksha == Paksha.SHUKLA) "Padmini Ekadashi" else "Parama Ekadashi"
         val idx = (lunarMonth - 1) % 12
         return if (paksha == Paksha.SHUKLA) shuklaEkadashiNames[idx] else krishnaEkadashiNames[idx]
     }

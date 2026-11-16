@@ -83,6 +83,14 @@ class EkadashiDayTest {
             EkadashiDay.kshayaDays(EkadashiDating.Tradition(EkadashiTradition.SMARTA)))
     }
 
+    /** An Adhik month's Shukla Ekadashi is Padmini and its Krishna one Parama, as Drik Panchang
+     *  publishes them: 27 May and 11 June 2026. */
+    @Test
+    fun anAdhikMonthsEkadashisArePadminiAndParama() {
+        assertEquals("Padmini Ekadashi", PanchaangHelper.ekadashiName(3, com.nityapanchangam.ephemeris.models.Paksha.SHUKLA, isAdhik = true))
+        assertEquals("Parama Ekadashi", PanchaangHelper.ekadashiName(3, com.nityapanchangam.ephemeris.models.Paksha.KRISHNA, isAdhik = true))
+    }
+
     @Test
     fun theDefaultIsSmarta() {
         assertEquals(EkadashiTradition.SMARTA, EkadashiTradition.DEFAULT)
