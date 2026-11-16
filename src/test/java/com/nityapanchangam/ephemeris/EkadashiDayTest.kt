@@ -1,5 +1,6 @@
 package com.nityapanchangam.ephemeris
 
+import com.nityapanchangam.ephemeris.models.EkadashiDating
 import com.nityapanchangam.ephemeris.models.EkadashiTradition
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -65,6 +66,21 @@ class EkadashiDayTest {
         parted.forEach {
             assertEquals(it.name, 1, offset(it, EkadashiTradition.VAISHNAVA) - offset(it, EkadashiTradition.SMARTA))
         }
+    }
+
+    /** Asked for both: one untagged day where the two agree, two tagged days where they part. */
+    @Test
+    fun bothTagsOnlyTheEkadashisTheyDateApart() {
+        fun both(c: Case) =
+            if (c.kshaya) EkadashiDay.kshayaDays(EkadashiDating.Both)
+            else EkadashiDay.days(c.tithi, EkadashiDating.Both, { k -> c.sunrise[k + 1] }, { k -> c.arunodaya[k + 1] })
+        for (c in cases) {
+            val expected = if (c.smarta == c.vaishnava) listOf(c.smarta to null)
+                else listOf(c.smarta to EkadashiTradition.SMARTA, c.vaishnava to EkadashiTradition.VAISHNAVA)
+            assertEquals(c.name, expected, both(c))
+        }
+        assertEquals(listOf(0 to null),
+            EkadashiDay.kshayaDays(EkadashiDating.Tradition(EkadashiTradition.SMARTA)))
     }
 
     @Test

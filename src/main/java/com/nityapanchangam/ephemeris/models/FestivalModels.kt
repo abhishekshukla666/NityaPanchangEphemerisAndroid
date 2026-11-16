@@ -50,7 +50,14 @@ data class HinduFestival(
      * Where this day is kept. Defaulted so every existing call site — and any caller that
      * does not care — keeps compiling and keeps meaning "kept everywhere".
      */
-    val regions: Int = FestivalRegion.ALL
+    val regions: Int = FestivalRegion.ALL,
+    /**
+     * The one tradition that keeps this day, for an Ekadashi the two traditions date apart -- the
+     * Smarta day and the Vaishnava day, one each. Null for every other festival, and for an
+     * Ekadashi both keep on the same day. Only ever set when both traditions were asked for
+     * ([EkadashiDating.Both]): asked for one, there is nothing to tell apart.
+     */
+    val tradition: EkadashiTradition? = null
 )
 
 /**
@@ -228,6 +235,19 @@ enum class EkadashiTradition {
          *  panchang leads with. */
         val DEFAULT = SMARTA
     }
+}
+
+/**
+ * Which Ekadashi dates a festival list carries: one tradition's, or both.
+ *
+ * With [Both], an Ekadashi the two traditions keep on the same day comes once, untagged; one they
+ * date apart comes twice, the Smarta day and the Vaishnava day, each tagged with its tradition
+ * ([HinduFestival.tradition]). Every other festival is the same under all three. Identical to iOS's
+ * EkadashiDating.
+ */
+sealed interface EkadashiDating {
+    data class Tradition(val tradition: EkadashiTradition) : EkadashiDating
+    data object Both : EkadashiDating
 }
 
 val allFestivalRules: List<FestivalRule>

@@ -1,5 +1,6 @@
 package com.nityapanchangam.ephemeris
 
+import com.nityapanchangam.ephemeris.models.EkadashiDating
 import com.nityapanchangam.ephemeris.models.EkadashiTradition
 import kotlin.math.floor
 
@@ -51,6 +52,34 @@ internal object EkadashiDay {
         }
         if (tradition != EkadashiTradition.VAISHNAVA) return smarta
         return smarta + if (vaishnavaMovesOn(smarta, tithi, sunriseTithi, arunodayaTithi)) 1 else 0
+    }
+
+    /**
+     * The day or days an Ekadashi goes on, as offsets from its Udaya day: one, untagged, for a
+     * single tradition or where both keep the same day; two, each tagged, where they part.
+     */
+    fun days(
+        tithi: Int,
+        ekadashis: EkadashiDating,
+        sunriseTithi: (Int) -> Int,
+        arunodayaTithi: (Int) -> Int,
+    ): List<Pair<Int, EkadashiTradition?>> = tagged(ekadashis) { offset(tithi, it, sunriseTithi, arunodayaTithi) }
+
+    /** [days], for a kshaya Ekadashi -- see [kshayaOffset]. */
+    fun kshayaDays(ekadashis: EkadashiDating): List<Pair<Int, EkadashiTradition?>> =
+        tagged(ekadashis) { kshayaOffset(it) }
+
+    private fun tagged(
+        ekadashis: EkadashiDating,
+        offset: (EkadashiTradition) -> Int,
+    ): List<Pair<Int, EkadashiTradition?>> = when (ekadashis) {
+        is EkadashiDating.Tradition -> listOf(offset(ekadashis.tradition) to null)
+        EkadashiDating.Both -> {
+            val smarta = offset(EkadashiTradition.SMARTA)
+            val vaishnava = offset(EkadashiTradition.VAISHNAVA)
+            if (smarta == vaishnava) listOf(smarta to null)
+            else listOf(smarta to EkadashiTradition.SMARTA, vaishnava to EkadashiTradition.VAISHNAVA)
+        }
     }
 
     /** A kshaya Ekadashi -- one holding no sunrise -- is the Smarta's on the day it runs, with
