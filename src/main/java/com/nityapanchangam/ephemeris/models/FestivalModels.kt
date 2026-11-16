@@ -209,18 +209,10 @@ val regionalFestivalRules: List<FestivalRule> = listOf(
 /**
  * Which tradition's rule decides the day an Ekadashi vrat is kept on.
  *
- * Narrower than it first looks. A *vriddhi* Ekadashi — one whose tithi holds two consecutive
- * sunrises — moves to its second day under both traditions, which four published observances
- * confirm: Amalaki 2023, Nirjala 2024, Rama 2024 and Vijaya 2027. What separates them is the
- * other test:
- *
- *  - **Dashami at arunodaya.** The Ekadashi began inside the last four ghatis before sunrise —
- *    ninety-six minutes — so Dashami was still running at the hour the vrat's day is reckoned
- *    to start. A Vaishnava's fast moves to the following day; a Smarta householder keeps this
- *    one.
- *
- * Measured over 2026–2028 the two differ on a single date, Aja Ekadashi 2028. Nothing else in
- * the app depends on this: it changes one date, and every surface that draws a festival follows.
+ * The two agree on most of the twenty-four, and part on about five a year: Drik Panchang's
+ * Smartha and ISKCON lists differ on 30 of 149 Ekadashis over 2023-2028. When they part the
+ * Vaishnava fast is always the day after the Smarta one -- the Dwadashi. See [EkadashiDay] for
+ * the rules, and EkadashiDayTest for the 149 published dates they reproduce.
  *
  * Kept identical to iOS's EkadashiTradition.
  */

@@ -699,25 +699,21 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
                 }
 
                 if (rule.lunarMonth == anchor.month && rule.matches(anchor.tithi)) {
-                    // Vriddhi: when the tithi also holds tomorrow's sunrise, an Ekadashi
-                    // belongs to that second day, not this first one — today is the
-                    // Dashami-viddha side. Everything else keeps the first sunrise its tithi
-                    // touches, which is what the `seen` set already gives it.
                     // Which day the vrat is kept on. Everything but an Ekadashi keeps the
-                    // first sunrise its tithi touches, which is what `seen` already gives it.
+                    // first sunrise its tithi touches, which is what `seen` already gives it; an
+                    // Ekadashi follows its own rules, and the two traditions' -- see EkadashiDay.
                     var observed = current
                     if (rule.resolvesForward && rule.tithiUpperBound == null &&
-                        rule.observationTime == ObservationTime.SUNRISE &&
-                        (isVriddhi(current, rule.tithiNumber) ||
-                            (tradition == EkadashiTradition.VAISHNAVA &&
-                                isDashamiAtArunodaya(current, rule.tithiNumber)))
+                        rule.observationTime == ObservationTime.SUNRISE
                     ) {
-                        observed = Calendar.getInstance().apply {
-                            time = current; add(Calendar.DAY_OF_YEAR, 1)
-                        }.time
+                        observed = addDays(current, ekadashiOffset(current, rule.tithiNumber, tradition))
                     }
 
-                    val key = "${rule.name}-$calYear"
+                    // An Ekadashi is keyed by its lunation, not the calendar year: Saphala and
+                    // Pausha Putrada can each fall twice in one year -- 7 January and 26
+                    // December 2024 -- and a name-and-year key dropped the second.
+                    val key = if (rule.resolvesForward) "${rule.name}-L${EkadashiDay.lunation(jdSunrise)}"
+                              else "${rule.name}-$calYear"
                     if (seen.add(key)) {
                         festivals.add(
                             HinduFestival(rule.name, observed, rule.emoji, rule.hasIcon, rule.regions)
@@ -737,19 +733,11 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
             // the calendar, the festival ribbon and the share text showed nothing at all for
             // a whole month, roughly once every thirty-three.
             if (isAdhikSunrise && (tithiSunrise == 11 || tithiSunrise == 26)) {
-                var observed = current
-                if (isVriddhi(current, tithiSunrise) ||
-                    (tradition == EkadashiTradition.VAISHNAVA &&
-                        isDashamiAtArunodaya(current, tithiSunrise))
-                ) {
-                    observed = Calendar.getInstance().apply {
-                        time = current; add(Calendar.DAY_OF_YEAR, 1)
-                    }.time
-                }
-                // Keyed on the tithi as well as the year: an Adhik month has two Ekadashis,
-                // one per paksha, and both carry this name. A name-and-year key would emit
-                // the first and swallow the second.
-                val padminiKey = "Padmini Ekadashi-$tithiSunrise-$calYear"
+                // Dated by the same rules as every other Ekadashi.
+                val observed = addDays(current, ekadashiOffset(current, tithiSunrise, tradition))
+                // Keyed on the tithi as well as the lunation: an Adhik month has two Ekadashis,
+                // one per paksha, both carrying this name and both inside one lunation.
+                val padminiKey = "Padmini Ekadashi-$tithiSunrise-L${EkadashiDay.lunation(jdSunrise)}"
                 if (seen.add(padminiKey)) {
                     festivals.add(HinduFestival("Padmini Ekadashi", observed, "🛕", false))
                 }
@@ -773,7 +761,7 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
             current = calendar.time
         }
 
-        festivals.addAll(kshayaFallbackFestivals(startDate, endDate, seen))
+        festivals.addAll(kshayaFallbackFestivals(startDate, endDate, tradition, seen))
         festivals.addAll(holiFestivals(startDate, endDate, seen))
 
         // Festivals that no tithi rule can express: two solar ingresses under different
@@ -1144,6 +1132,19 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
     }
 
 
+    /** Days from [udaya], the Ekadashi's first sunrise, to its vrat -- see [EkadashiDay]. */
+    private fun ekadashiOffset(udaya: Date, tithi: Int, tradition: EkadashiTradition): Int =
+        EkadashiDay.offset(
+            tithi, tradition,
+            sunriseTithi = { k -> wrapper.calculateTithiNumberForJulianDay(referenceSunriseJD(addDays(udaya, k))) },
+            arunodayaTithi = { k ->
+                wrapper.calculateTithiNumberForJulianDay(referenceSunriseJD(addDays(udaya, k)) - ARUNODAYA_GHATIS)
+            },
+        )
+
+    private fun addDays(date: Date, days: Int): Date =
+        if (days == 0) date else Calendar.getInstance().apply { time = date; add(Calendar.DAY_OF_YEAR, days) }.time
+
     /**
      * Sunrise at the Ujjain reference for the day starting at [dayStart] — the instant every
      * Udaya Tithi festival rule is matched against.
@@ -1158,32 +1159,6 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
      * Falls back to the old proxy only where sunrise genuinely does not occur, matching
      * fetchDailySummaries: a scan must still yield a row above the Arctic circle.
      */
-    /**
-     * Whether the tithi holds tomorrow's sunrise too.
-     *
-     * A vriddhi Ekadashi moves to its second day under BOTH traditions, not only for
-     * Vaishnavas — four published observances say so, and the Swift suite pins all four. That
-     * is what separates it from [isDashamiAtArunodaya], which is the part the two traditions
-     * actually disagree about.
-     */
-    private fun isVriddhi(dayStart: Date, tithi: Int): Boolean {
-        val tomorrow = Calendar.getInstance().apply {
-            time = dayStart; add(Calendar.DAY_OF_YEAR, 1)
-        }.time
-        return wrapper.calculateTithiNumberForJulianDay(referenceSunriseJD(tomorrow)) == tithi
-    }
-
-    /**
-     * Whether Dashami was still running four ghatis before sunrise.
-     *
-     * Ninety-six minutes is the figure most often given; forty-eight is also used, and which
-     * is chosen changes roughly one date a year.
-     */
-    private fun isDashamiAtArunodaya(dayStart: Date, tithi: Int): Boolean {
-        val arunodaya = referenceSunriseJD(dayStart) - ARUNODAYA_GHATIS
-        return wrapper.calculateTithiNumberForJulianDay(arunodaya) != tithi
-    }
-
     private fun referenceSunriseJD(dayStart: Date): Double {
         val jd = dateToJD(dayStart)
         // Memoised because this replaced a free constant, and both the festival scan and the
@@ -1295,7 +1270,12 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
      * Scoped to SUNRISE rules only, as on iOS. Midnight, Pradosh and Aparahna rules have their
      * own anchor instants and would need their own gap tracking to fix correctly.
      */
-    private fun kshayaFallbackFestivals(startDate: Date, endDate: Date, seen: MutableSet<String>): List<HinduFestival> {
+    private fun kshayaFallbackFestivals(
+        startDate: Date,
+        endDate: Date,
+        tradition: EkadashiTradition,
+        seen: MutableSet<String>,
+    ): List<HinduFestival> {
         val windowStart = getStartOfDay(startDate)
         val windowEnd = getStartOfDay(endDate)
 
@@ -1338,13 +1318,17 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
                         for (rule in allFestivalRules) {
                             if (rule.observationTime != ObservationTime.SUNRISE) continue
                             if (rule.tithiNumber != skipped || rule.lunarMonth != skippedMonth) continue
-                            val key = "${rule.name}-${prev.third}"
+                            val key = if (rule.resolvesForward)
+                                "${rule.name}-L${EkadashiDay.lunation(referenceSunriseJD(prev.first))}"
+                                else "${rule.name}-${prev.third}"
+                            val date = if (rule.resolvesForward)
+                                addDays(prev.first, EkadashiDay.kshayaOffset(tradition)) else prev.first
                             if (seen.add(key)) {
                                 // regions must be carried here too. Without it a festival
                                 // whose tithi is kshaya that year came back as ALL and showed
                                 // for every reader — Datta Jayanti does exactly that in 2026,
                                 // when the Margashirsha Purnima is skipped.
-                                fallback.add(HinduFestival(rule.name, prev.first, rule.emoji,
+                                fallback.add(HinduFestival(rule.name, date, rule.emoji,
                                                            rule.hasIcon, rule.regions))
                             }
                         }
