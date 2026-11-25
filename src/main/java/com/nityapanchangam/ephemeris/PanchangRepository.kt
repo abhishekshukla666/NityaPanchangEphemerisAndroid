@@ -122,16 +122,20 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
 
         fun jdTime(key: String): Date = jdToDate(mData[key] ?: 0.0)
 
-        val muhurats = listOf(
+        // Abhijit is not kept on a Wednesday, when Drik Panchang lists none: the midday muhurta
+        // is held to turn malefic on that weekday. Left out, so every caller that looks it up
+        // by id finds no Abhijit that day. Amrit Kaal ("2") and Varjyam ("9") come from the
+        // nakshatra, further down, once the next sunrise is known.
+        val baseMuhurats = listOfNotNull(
             Muhurat("1", context.localized("muhurat_brahma", "Brahma Muhurat"), jdTime("brahmaStart"), jdTime("brahmaEnd"), MuhuratType.AUSPICIOUS),
-            Muhurat("2", context.localized("muhurat_amrit", "Amrit Kaal"), jdTime("amritStart"), jdTime("amritEnd"), MuhuratType.AUSPICIOUS),
-            Muhurat("3", context.localized("muhurat_abhijit", "Abhijit Muhurat"), jdTime("abhijitStart"), jdTime("abhijitEnd"), MuhuratType.AUSPICIOUS),
+            if (weekday == Calendar.WEDNESDAY) null
+            else Muhurat("3", context.localized("muhurat_abhijit", "Abhijit Muhurat"), jdTime("abhijitStart"), jdTime("abhijitEnd"), MuhuratType.AUSPICIOUS),
             Muhurat("4", context.localized("muhurat_vijaya", "Vijaya Muhurat"), jdTime("vijayaStart"), jdTime("vijayaEnd"), MuhuratType.AUSPICIOUS),
             Muhurat("5", context.localized("muhurat_godhuli", "Godhuli Muhurat"), jdTime("godhuliStart"), jdTime("godhuliEnd"), MuhuratType.NEUTRAL),
             Muhurat("6", context.localized("muhurat_rahu", "Rahu Kaal"), jdTime("rahuStart"), jdTime("rahuEnd"), MuhuratType.INAUSPICIOUS),
             Muhurat("7", context.localized("muhurat_yamaganda", "Yamaganda"), jdTime("yamaStart"), jdTime("yamaEnd"), MuhuratType.INAUSPICIOUS),
             Muhurat("8", context.localized("muhurat_gulik", "Gulik Kaal"), jdTime("gulikStart"), jdTime("gulikEnd"), MuhuratType.NEUTRAL)
-        ).sortedBy { it.startTime }
+        )
 
         val rawPlanets = wrapper.calculatePlanetPositionsForJulianDay(refJD)
         val planetPositions = PanchaangHelper.buildPlanetPositions(context, rawPlanets)
@@ -188,6 +192,10 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
             previous = pradoshOverlapOn(jdDayStart - 1.0, latitude, longitude),
             next = pradoshOverlapOn(jdDayStart + 1.0, latitude, longitude)
         )
+
+        // Amrit Kaal and Varjyam, from the nakshatras this day touches: none, one or two of
+        // each, some after midnight.
+        val muhurats = (baseMuhurats + nakshatraWindows(sunriseJD, nextSunriseJD)).sortedBy { it.startTime }
 
         val nightSegLen = max(nextSunriseJD - sunsetJD, 1.0 / 1440.0) / 8.0
         val nightOrder = nightChaughariyaOrder(weekday)
@@ -263,6 +271,38 @@ class PanchangRepository(private val context: Context, private val wrapper: Swis
             rashis = rashiPeriods,
             outerPlanets = outerPlanetPositions
         )
+    }
+
+    /**
+     * Amrit Kaal and Varjyam for the panchang day: every one that begins between this sunrise
+     * and the next, as Drik Panchang lists them. One that began before sunrise belongs to the
+     * day before. The nakshatra running at sunrise is taken from its true start, since its
+     * windows sit at fractions of the whole nakshatra. The same as the iOS engine.
+     */
+    private fun nakshatraWindows(sunriseJD: Double, nextSunriseJD: Double): List<Muhurat> {
+        val out = mutableListOf<Muhurat>()
+        var startJD = wrapper.calculateNakshatraStartTimeForJulianDay(sunriseJD)
+        var insideJD = sunriseJD
+        // Up to three nakshatras can touch one day; bounded so a search that fails to advance
+        // cannot spin.
+        repeat(4) {
+            if (startJD >= nextSunriseJD) return out
+            val number = wrapper.calculateNakshatraForJulianDay(insideJD)
+            val endJD = wrapper.calculateNakshatraEndTimeForJulianDay(insideJD)
+            if (endJD <= startJD) return out
+            fun add(id: String, name: String, type: MuhuratType, windows: List<Pair<Double, Double>>) {
+                windows.filter { it.first >= sunriseJD && it.first < nextSunriseJD }.forEach {
+                    out += Muhurat(id, name, jdToDate(it.first), jdToDate(it.second), type)
+                }
+            }
+            add("2", context.localized("muhurat_amrit", "Amrit Kaal"), MuhuratType.AUSPICIOUS,
+                NakshatraWindows.amrit(number, startJD, endJD))
+            add("9", context.localized("muhurat_varjyam", "Varjyam"), MuhuratType.INAUSPICIOUS,
+                NakshatraWindows.varjyam(number, startJD, endJD))
+            startJD = endJD
+            insideJD = endJD + 1.0 / 1440.0
+        }
+        return out
     }
 
     /**

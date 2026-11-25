@@ -380,8 +380,9 @@ JNIEXPORT jobject JNICALL Java_com_nityapanchangam_ephemeris_SwissEphWrapper_cal
     result["abhijitStart"] = sunriseJD + 7.0 * muhuratLength15;
     result["abhijitEnd"] = result["abhijitStart"] + muhuratLength15;
 
-    // Vijaya (10th of 15)
-    result["vijayaStart"] = sunriseJD + 9.0 * muhuratLength15;
+    // Vijaya: the 11th of 15, as Drik Panchang labels it (1:53-2:36 PM at New Delhi on
+    // 25 Nov 2026). This was the 10th, a muhurta early. Same as the iOS engine.
+    result["vijayaStart"] = sunriseJD + 10.0 * muhuratLength15;
     result["vijayaEnd"] = result["vijayaStart"] + muhuratLength15;
 
     // Seven of the day's eight parts carry a lord, assigned from the lord of the weekday
@@ -411,25 +412,24 @@ JNIEXPORT jobject JNICALL Java_com_nityapanchangam_ephemeris_SwissEphWrapper_cal
     result["gulikStart"] = sunriseJD + (gulikSegments[weekday - 1] - 1) * muhuratLength8;
     result["gulikEnd"] = result["gulikStart"] + muhuratLength8;
 
-    result["brahmaStart"] = sunriseJD - (96.0 / 1440.0);
-    result["brahmaEnd"] = sunriseJD - (48.0 / 1440.0);
+    // Brahma Muhurat: the night's fourteenth muhurta of fifteen, the one before the last.
+    // Drik Panchang's New Delhi times fit it to the minute in December (5:04-5:58 AM) and June
+    // (4:04-4:44 AM); it was a fixed 96-48 minutes before sunrise. The night before this
+    // sunrise is a day less this day's daylight, to well within a minute.
+    double nightDuration = 1.0 - dayDuration;
+    double nightMuhurta = nightDuration / 15.0;
+    result["brahmaStart"] = sunriseJD - 2.0 * nightMuhurta;
+    result["brahmaEnd"] = sunriseJD - nightMuhurta;
 
-    // The Amrit chaughadiya, derived rather than tabulated so it cannot drift from the
-    // chaughadiya list the app draws beside it — which is where the old table disagreed.
-    //
-    // A day's chaughadiyas run Udveg, Char, Labh, Amrit, Kaal, Shubh, Rog on a seven-cycle,
-    // starting at the type ruled by the weekday's lord; PanchangRepository holds that same
-    // starting offset as `dayIdx`. Amrit is the fourth name, so it falls in the segment that
-    // brings the cycle round to it. The table said {3,0,5,1,6,2,7}, an eighth of the day late
-    // on Tuesday, Thursday and Saturday, so the muhurat list and the chaughadiya list showed
-    // one period at two different times on three days in seven.
-    int chaughadiyaStart[7] = {0, 3, 6, 2, 5, 1, 4};
-    int amritSegment = (3 - chaughadiyaStart[weekday - 1] + 7) % 7;
-    result["amritStart"] = sunriseJD + amritSegment * muhuratLength8;
-    result["amritEnd"] = result["amritStart"] + muhuratLength8;
+    // Amrit Kaal is not a part of the day: it comes from the nakshatra, in PanchangRepository
+    // (see NakshatraWindows). It used to be the Amrit chaughadiya under another name, which put
+    // it on Yamaganda every Wednesday and on Rahu Kaal every Thursday.
 
-    result["godhuliStart"] = sunsetJD - (24.0 / 1440.0);
-    result["godhuliEnd"] = sunsetJD + (24.0 / 1440.0);
+    // Godhuli: one ghati of the night -- a thirtieth of it -- from just before sunset. Drik
+    // publishes no rule; its times fit this, 27 minutes in winter (5:22-5:49 PM) and 20 in June
+    // (7:21-7:41 PM), each starting a minute or two before sunset. The two minutes are that lead.
+    result["godhuliStart"] = sunsetJD - (2.0 / 1440.0);
+    result["godhuliEnd"] = result["godhuliStart"] + nightDuration / 30.0;
 
     return create_double_map(env, result);
 }
